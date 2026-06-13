@@ -5,7 +5,7 @@ exports.handler = async function(event, context) {
     const options = {
       hostname: 'ocelotlogistics.infopluswms.com',
       port: 443,
-      path: '/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=50&sort=orderDate',
+      path: '/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=50&sort=!orderDate',
       method: 'GET',
       headers: {
         'API-KEY': API_KEY,
