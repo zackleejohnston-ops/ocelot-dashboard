@@ -22,6 +22,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--g);color:#fff;min
 .upd{font-size:10px;color:var(--gr);}
 .rbtn{background:var(--s2);border:1px solid var(--b);color:var(--gold);padding:5px 12px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
 .rbtn:hover{background:var(--gold);color:var(--g);}
+.status-row{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
+.stc{background:var(--s);padding:12px 16px;text-align:center;}
+.stl{font-size:8px;font-weight:600;letter-spacing:.1em;color:var(--gr);text-transform:uppercase;margin-bottom:4px;}
+.stv{font-size:22px;font-weight:700;line-height:1;color:#fff;}
+.stc.error .stv{color:#FF8080;}
+.stc.backorder .stv{color:#FF8C42;}
+.stc.onorder .stv{color:var(--g2);}
+.stc.processed .stv{color:#4A9EFF;}
+.stc.shipped .stv{color:#4CAF50;}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
 .sc{background:var(--s);padding:16px 20px;position:relative;}
 .sc::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:2px;}
@@ -74,6 +83,8 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
 .bpr{background:rgba(74,158,255,.15);color:#4A9EFF;border:1px solid rgba(74,158,255,.3);}
 .bsh{background:rgba(76,175,80,.15);color:#4CAF50;border:1px solid rgba(76,175,80,.3);}
 .bot{background:rgba(154,149,144,.15);color:var(--gr);border:1px solid rgba(154,149,144,.3);}
+.berr{background:rgba(255,128,128,.15);color:#FF8080;border:1px solid rgba(255,128,128,.3);}
+.bbk{background:rgba(255,140,66,.15);color:#FF8C42;border:1px solid rgba(255,140,66,.3);}
 .sbox{padding:24px;text-align:center;color:var(--gr);font-size:12px;}
 .ftr{padding:10px 24px;border-top:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;}
 .fb{font-size:9px;color:var(--gr);letter-spacing:.1em;}
@@ -94,12 +105,24 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
     <button class="rbtn" onclick="loadAll()">&#8635; Refresh</button>
   </div>
 </div>
+
+<div class="status-row">
+  <div class="stc"><div class="stl">Pending</div><div class="stv" id="cPend">-</div></div>
+  <div class="stc error"><div class="stl">Error</div><div class="stv" id="cErr">-</div></div>
+  <div class="stc onorder"><div class="stl">On Order</div><div class="stv" id="cOn">-</div></div>
+  <div class="stc processed"><div class="stl">Processed</div><div class="stv" id="cProc">-</div></div>
+  <div class="stc shipped"><div class="stl">Shipped</div><div class="stv" id="cShip">-</div></div>
+  <div class="stc backorder"><div class="stl">Back Order</div><div class="stv" id="cBack">-</div></div>
+  <div class="stc"><div class="stl">Cancelled</div><div class="stv" id="cCanc">-</div></div>
+</div>
+
 <div class="stats">
-  <div class="sc"><div class="sl">Total Orders</div><div class="sv" id="sT">-</div><div class="ss">All statuses</div></div>
+  <div class="sc"><div class="sl">Total Orders</div><div class="sv" id="sT">-</div><div class="ss">Last 50 orders</div></div>
   <div class="sc"><div class="sl">On Order</div><div class="sv" id="sO">-</div><div class="ss">Awaiting fulfillment</div></div>
   <div class="sc"><div class="sl">Shipped</div><div class="sv" id="sS">-</div><div class="ss">Out the door</div></div>
   <div class="sc"><div class="sl">Avg Freight</div><div class="sv" id="sF">-</div><div class="ss">Per shipment</div></div>
 </div>
+
 <div class="grid">
   <div class="panel">
     <div class="ph"><div class="pt">Shipping Status</div><div class="pm" id="em">Ehub</div></div>
@@ -129,54 +152,72 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
     </div>
   </div>
 </div>
+
 <div class="ftr">
   <div class="fb">OCELOT LOGISTICS - OPERATIONS</div>
   <div class="fb" id="fc">-</div>
 </div>
+
 <script>
 var CL = {
-  '22343': 'Cook Dine Host',
-  '22344': 'Joymode',
-  '22345': 'Monteleone',
-  '22346': 'Not Just Co',
-  '22347': 'Oklahoma Smokes',
-  '22348': 'Olive Odyssey',
-  '22349': 'Sol Science',
-  '22350': 'Teonan Biomedical',
-  '22351': 'Total Hydration',
-  '22352': 'Two Leaves and a Bud',
-  '22353': 'Vitamin IQ',
-  '22354': 'Primitive Scientific',
-  '22649': 'Third Party UPS'
+  '22343':'Cook Dine Host','22344':'Joymode','22345':'Monteleone',
+  '22346':'Not Just Co','22347':'Oklahoma Smokes','22348':'Olive Odyssey',
+  '22349':'Sol Science','22350':'Teonan Biomedical','22351':'Total Hydration',
+  '22352':'Two Leaves and a Bud','22353':'Vitamin IQ','22354':'Primitive Scientific',
+  '22649':'Third Party UPS'
 };
-function cn(id){ return CL[String(id)] || 'LOB ' + id; }
+function cn(id){ return CL[String(id)] || 'LOB '+id; }
 function fd(d){ if(!d) return '-'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
-function sb(s){ var c=(s||'').toLowerCase().replace(/ /g,'-'); var cl='bot'; if(c==='on-order') cl='bon'; else if(c==='processed') cl='bpr'; else if(c==='shipped') cl='bsh'; return '<span class="badge '+cl+'">'+s+'</span>'; }
+function sb(s){
+  var c=(s||'').toLowerCase().replace(/ /g,'-');
+  var cl='bot';
+  if(c==='on-order') cl='bon';
+  else if(c==='processed') cl='bpr';
+  else if(c==='shipped') cl='bsh';
+  else if(c==='error') cl='berr';
+  else if(c==='back-order') cl='bbk';
+  return '<span class="badge '+cl+'">'+s+'</span>';
+}
 function tog(){ document.getElementById('ob').classList.toggle('open'); document.getElementById('arr').classList.toggle('open'); }
 
 function loadInfoplus(){
   fetch('/.netlify/functions/orders')
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
     .then(function(d){
-      var orders = d.response || d || [];
-      if(!Array.isArray(orders) || !orders.length){ document.getElementById('sT').textContent='0'; return; }
-      var on = orders.filter(function(o){ return (o.status||'').toLowerCase().indexOf('order')>-1; }).length;
-      var sh = orders.filter(function(o){ return (o.status||'').toLowerCase().indexOf('ship')>-1; }).length;
-      var sf = orders.filter(function(o){ return (o.status||'').toLowerCase().indexOf('ship')>-1 && o.totalFreightCharge>0; });
+      var orders = d.orders || [];
+      var counts = d.counts || {};
+
+      document.getElementById('cPend').textContent = counts['Pending'] || 0;
+      document.getElementById('cErr').textContent = counts['Error'] || 0;
+      document.getElementById('cOn').textContent = counts['On Order'] || 0;
+      document.getElementById('cProc').textContent = counts['Processed'] || 0;
+      document.getElementById('cShip').textContent = counts['Shipped'] || 0;
+      document.getElementById('cBack').textContent = counts['Back Order'] || 0;
+      document.getElementById('cCanc').textContent = counts['Cancelled'] || 0;
+
+      if(!orders.length){ document.getElementById('sT').textContent='0'; return; }
+      var on = orders.filter(function(o){ return o.status==='On Order'; }).length;
+      var sh = orders.filter(function(o){ return o.status==='Shipped'; }).length;
+      var sf = orders.filter(function(o){ return o.status==='Shipped' && o.totalFreightCharge>0; });
       var af = sf.length ? sf.reduce(function(s,o){ return s+(o.totalFreightCharge||0); },0)/sf.length : 0;
       document.getElementById('sT').textContent = orders.length;
       document.getElementById('sO').textContent = on;
       document.getElementById('sS').textContent = sh;
       document.getElementById('sF').textContent = af ? '$'+af.toFixed(2) : '-';
       document.getElementById('om').textContent = orders.length+' orders';
-      document.getElementById('fc').textContent = orders.length+' records loaded';
+      document.getElementById('fc').textContent = orders.length+' recent orders loaded';
+
       var cc = {};
       orders.forEach(function(o){ var n=cn(o.lobId); cc[n]=(cc[n]||0)+1; });
       var ci = Object.entries(cc).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       var mx = ci[0] ? ci[0].c : 1;
-      document.getElementById('bar').innerHTML = ci.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
+      document.getElementById('bar').innerHTML = ci.map(function(i){
+        return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>';
+      }).join('');
       document.getElementById('bm').textContent = ci.length+' clients';
-      document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.totalFreightCharge?'$'+Number(o.totalFreightCharge).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
+      document.getElementById('otb').innerHTML = orders.map(function(o){
+        return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.totalFreightCharge?'$'+Number(o.totalFreightCharge).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>';
+      }).join('');
     })
     .catch(function(e){ document.getElementById('sT').textContent='Err'; document.getElementById('bar').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
@@ -199,7 +240,9 @@ function loadEhub(){
       if(tr) items.push({l:'In Transit',v:tr,c:'#4A9EFF'});
       if(ofd) items.push({l:'Out for Del.',v:ofd,c:'#E8A84A'});
       if(oth>0) items.push({l:'Other',v:oth,c:'#9A9590'});
-      document.getElementById('dleg').innerHTML = items.length ? items.map(function(i){ return '<div class="li"><div class="ld" style="background:'+i.c+'"></div>'+i.l+'<span class="lv">'+i.v+'</span></div>'; }).join('') : '<div class="sbox">No data</div>';
+      document.getElementById('dleg').innerHTML = items.length ? items.map(function(i){
+        return '<div class="li"><div class="ld" style="background:'+i.c+'"></div>'+i.l+'<span class="lv">'+i.v+'</span></div>';
+      }).join('') : '<div class="sbox">No data</div>';
     })
     .catch(function(e){ document.getElementById('em').textContent='Ehub error'; document.getElementById('dleg').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
