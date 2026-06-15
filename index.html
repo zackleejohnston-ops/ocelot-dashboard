@@ -9,17 +9,17 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{--g:#0F2219;--gold:#C8832A;--g2:#E8A84A;--s:#162E23;--s2:#1F3D2E;--b:rgba(200,131,42,0.2);--gr:#9A9590;--cr:#F5F0E8;}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--g);color:#fff;min-height:100vh;}
-.hdr{background:var(--g);border-bottom:1px solid var(--b);padding:0 24px;height:90px;display:flex;align-items:center;justify-content:space-between;}
-.logo-img{height:80px;width:auto;display:block;}
-.htitle{font-size:10px;font-weight:600;letter-spacing:.14em;color:var(--gr);text-transform:uppercase;}
-.hdiv{width:1px;height:50px;background:var(--b);}
-.hdr-l{display:flex;align-items:center;gap:14px;}
-.hdr-r{display:flex;align-items:center;gap:10px;}
-.dot{width:7px;height:7px;border-radius:50%;background:#4CAF50;animation:pulse 2s infinite;}
+.hdr{background:var(--g);border-bottom:1px solid var(--b);padding:0 28px;height:120px;display:flex;align-items:center;justify-content:space-between;}
+.logo-img{height:110px;width:auto;display:block;}
+.htitle{font-size:16px;font-weight:600;letter-spacing:.14em;color:var(--gr);text-transform:uppercase;}
+.hdiv{width:1px;height:70px;background:var(--b);}
+.hdr-l{display:flex;align-items:center;gap:18px;}
+.hdr-r{display:flex;align-items:center;gap:14px;}
+.dot{width:10px;height:10px;border-radius:50%;background:#4CAF50;animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.live{font-size:9px;color:#4CAF50;font-weight:600;letter-spacing:.1em;}
-.upd{font-size:10px;color:var(--gr);}
-.rbtn{background:var(--s2);border:1px solid var(--b);color:var(--gold);padding:5px 12px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
+.live{font-size:13px;color:#4CAF50;font-weight:700;letter-spacing:.1em;}
+.upd{font-size:13px;color:var(--gr);}
+.rbtn{background:var(--s2);border:1px solid var(--b);color:var(--gold);padding:8px 18px;border-radius:4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
 .rbtn:hover{background:var(--gold);color:var(--g);}
 .status-row{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
 .stc{background:var(--s);padding:12px 16px;text-align:center;}
@@ -125,23 +125,14 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
 </div>
 
 <div class="grid">
-
   <div class="panel">
-    <div class="ph">
-      <div class="pt">Awaiting Fulfillment</div>
-      <div class="pm" id="awaitMeta">by client</div>
-    </div>
+    <div class="ph"><div class="pt">Awaiting Fulfillment</div><div class="pm" id="awaitMeta">by client</div></div>
     <div class="pb" id="awaitBar"><div class="sbox">Loading...</div></div>
   </div>
-
   <div class="panel">
-    <div class="ph">
-      <div class="pt">Shipped Today</div>
-      <div class="pm" id="shippedMeta">by client</div>
-    </div>
+    <div class="ph"><div class="pt">Shipped Today</div><div class="pm" id="shippedMeta">by client</div></div>
     <div class="pb" id="shippedBar"><div class="sbox">Loading...</div></div>
   </div>
-
   <div class="panel">
     <div class="ph"><div class="pt">Shipping Status</div><div class="pm" id="em">Ehub</div></div>
     <div class="pb">
@@ -153,12 +144,10 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
       <div class="dleg" id="dleg"><div class="sbox">Loading...</div></div>
     </div>
   </div>
-
   <div class="panel">
     <div class="ph"><div class="pt">All Orders by Client</div><div class="pm" id="bm">Infoplus</div></div>
     <div class="pb" id="bar"><div class="sbox">Loading...</div></div>
   </div>
-
   <div class="panel s2">
     <div class="otog" onclick="tog()">
       <div class="pt">Recent Orders <span class="pm" id="om" style="margin-left:6px;text-transform:none;letter-spacing:0;"></span></div>
@@ -171,7 +160,6 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
       </table>
     </div>
   </div>
-
 </div>
 
 <div class="ftr">
@@ -181,41 +169,27 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
 
 <script>
 var CL = {
-  '22343': 'Cook Dine Host',
-  '22344': 'Joymode',
-  '22345': 'Monteleone',
-  '22346': 'Not Just Co',
-  '22347': 'Oklahoma Smokes',
-  '22348': 'Olive Odyssey',
-  '22349': 'Sol Science',
-  '22350': 'Teonan Biomedical',
-  '22351': 'Total Hydration',
-  '22352': 'Two Leaves and a Bud',
-  '22353': 'Vitamin IQ',
-  '22354': 'Primitive Scientific',
-  '22649': 'Third Party UPS'
+  '22343': 'Cook Dine Host','22344': 'Joymode','22345': 'Monteleone','22346': 'Not Just Co',
+  '22347': 'Oklahoma Smokes','22348': 'Olive Odyssey','22349': 'Sol Science',
+  '22350': 'Teonan Biomedical','22351': 'Total Hydration','22352': 'Two Leaves and a Bud',
+  '22353': 'Vitamin IQ','22354': 'Primitive Scientific','22649': 'Third Party UPS'
 };
 function cn(id){ return CL[String(id)] || 'LOB '+id; }
 function fd(d){ if(!d) return '-'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function sb(s){ var c=(s||'').toLowerCase().replace(/ /g,'-'); var cl='bot'; if(c==='on-order') cl='bon'; else if(c==='processed') cl='bpr'; else if(c==='shipped') cl='bsh'; else if(c==='error') cl='berr'; else if(c==='back-order') cl='bbk'; return '<span class="badge '+cl+'">'+s+'</span>'; }
 function tog(){ document.getElementById('ob').classList.toggle('open'); document.getElementById('arr').classList.toggle('open'); }
-
 function buildBars(elId, items, colorClass){
   var el = document.getElementById(elId);
   if(!items.length){ el.innerHTML='<div class="sbox">None</div>'; return; }
   var mx = items[0].c;
-  el.innerHTML = items.map(function(i){
-    return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil '+colorClass+'" style="width:'+Math.round(i.c/mx*100)+'%"></div></div><div class="bcnt">'+i.c+'</div></div>';
-  }).join('');
+  el.innerHTML = items.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil '+colorClass+'" style="width:'+Math.round(i.c/mx*100)+'%"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
 }
-
 function loadInfoplus(){
   fetch('/.netlify/functions/orders')
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
     .then(function(d){
       var orders = d.orders || d.response || d || [];
       var counts = d.counts || {};
-
       document.getElementById('cPend').textContent = counts['Pending'] || 0;
       document.getElementById('cErr').textContent = counts['Error'] || 0;
       document.getElementById('cOn').textContent = counts['On Order'] || 0;
@@ -223,46 +197,37 @@ function loadInfoplus(){
       document.getElementById('cShip').textContent = counts['Shipped'] || 0;
       document.getElementById('cBack').textContent = counts['Back Order'] || 0;
       document.getElementById('cCanc').textContent = counts['Cancelled'] || 0;
-
       if(!Array.isArray(orders) || !orders.length){ document.getElementById('sT').textContent='0'; return; }
-
       var today = new Date().toISOString().split('T')[0];
-
       var awaiting = orders.filter(function(o){ return o.status==='On Order' || o.status==='Pending' || o.status==='Processed'; });
       var shippedToday = orders.filter(function(o){ return o.status==='Shipped' && o.orderDate && o.orderDate.indexOf(today)>-1; });
       var shippedAll = orders.filter(function(o){ return o.status==='Shipped'; });
-
       document.getElementById('sT').textContent = orders.length;
       document.getElementById('sO').textContent = awaiting.length;
       document.getElementById('sS').textContent = shippedToday.length || shippedAll.length;
       document.getElementById('om').textContent = orders.length+' orders';
       document.getElementById('fc').textContent = orders.length+' recent orders loaded';
-
       var ac = {};
       awaiting.forEach(function(o){ var n=cn(o.lobId); ac[n]=(ac[n]||0)+1; });
       var ai = Object.entries(ac).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       document.getElementById('awaitMeta').textContent = ai.length+' clients';
       buildBars('awaitBar', ai, 'pending');
-
       var sc2 = {};
       var shipSrc = shippedToday.length ? shippedToday : shippedAll;
       shipSrc.forEach(function(o){ var n=cn(o.lobId); sc2[n]=(sc2[n]||0)+1; });
       var si = Object.entries(sc2).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       document.getElementById('shippedMeta').textContent = si.length ? si.length+' clients' : 'none yet';
       buildBars('shippedBar', si, 'shipped');
-
       var cc = {};
       orders.forEach(function(o){ var n=cn(o.lobId); cc[n]=(cc[n]||0)+1; });
       var ci = Object.entries(cc).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       var mx = ci[0] ? ci[0].c : 1;
       document.getElementById('bar').innerHTML = ci.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
       document.getElementById('bm').textContent = ci.length+' clients';
-
       document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.freight?'$'+Number(o.freight).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
     })
     .catch(function(e){ document.getElementById('sT').textContent='Err'; document.getElementById('awaitBar').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
-
 function loadEhub(){
   fetch('/.netlify/functions/ehub')
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
@@ -290,7 +255,6 @@ function loadEhub(){
     })
     .catch(function(e){ document.getElementById('em').textContent='Ehub error'; document.getElementById('dleg').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
-
 function loadAll(){
   document.getElementById('upd').textContent = 'Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
   loadInfoplus();
