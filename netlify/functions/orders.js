@@ -29,9 +29,9 @@ exports.handler = async function(event, context) {
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
     const dd = String(now.getUTCDate()).padStart(2, '0');
-    const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
+    const start = yyyy + '-' + mm + '-' + dd + 'T00%3A00%3A00.000Z';
 
-    // Exact format from Infoplus KB docs — single quotes, modifyDate field
+    // Colons encoded as %3A, single quotes as %27
     const path = '/infoplus-wms/api/beta/order/search?filter=modifyDate%20gt%20%27' + start + '%27&limit=500&sort=!orderDate';
 
     const result = await infoplusGet(path);
