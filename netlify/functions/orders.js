@@ -38,7 +38,7 @@ exports.handler = async function(event, context) {
     const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
     const end = yyyy2 + '-' + mm2 + '-' + dd2 + 'T00:00:00.000Z';
 
-    const filterStr = "orderDate gt '" + start + "' and orderDate lt '" + end + "'";
+    const filterStr = "orderDate ge '" + start + "' and orderDate lt '" + end + "'";
     const encodedFilter = filterStr.split(' ').join('%20').split("'").join('%27');
     
     const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + encodedFilter + '&limit=500&sort=!orderDate');
