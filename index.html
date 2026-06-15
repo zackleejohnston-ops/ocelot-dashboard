@@ -216,6 +216,7 @@ function loadInfoplus(){
     .then(function(d){
       var orders = d.orders || d.response || d || [];
       var counts = d.counts || {};
+
       document.getElementById('cPend').textContent = counts['Pending'] || 0;
       document.getElementById('cErr').textContent = counts['Error'] || 0;
       document.getElementById('cOn').textContent = counts['On Order'] || 0;
@@ -223,34 +224,45 @@ function loadInfoplus(){
       document.getElementById('cShip').textContent = counts['Shipped'] || 0;
       document.getElementById('cBack').textContent = counts['Back Order'] || 0;
       document.getElementById('cCanc').textContent = counts['Cancelled'] || 0;
+
       if(!Array.isArray(orders) || !orders.length){ document.getElementById('sT').textContent='0'; return; }
+
       var today = new Date().toISOString().split('T')[0];
+
       var awaiting = orders.filter(function(o){ return o.status==='On Order' || o.status==='Pending' || o.status==='Processed'; });
       var shippedToday = orders.filter(function(o){ return o.status==='Shipped' && o.orderDate && o.orderDate.indexOf(today)>-1; });
       var shippedAll = orders.filter(function(o){ return o.status==='Shipped'; });
+
       document.getElementById('sT').textContent = orders.length;
       document.getElementById('sO').textContent = awaiting.length;
       document.getElementById('sS').textContent = shippedToday.length || shippedAll.length;
       document.getElementById('om').textContent = orders.length+' orders';
       document.getElementById('fc').textContent = orders.length+' recent orders loaded';
+
+      // Awaiting by client
       var ac = {};
       awaiting.forEach(function(o){ var n=cn(o.lobId); ac[n]=(ac[n]||0)+1; });
       var ai = Object.entries(ac).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       document.getElementById('awaitMeta').textContent = ai.length+' clients';
       buildBars('awaitBar', ai, 'pending');
+
+      // Shipped today by client (fall back to all shipped if none today)
       var sc2 = {};
       var shipSrc = shippedToday.length ? shippedToday : shippedAll;
       shipSrc.forEach(function(o){ var n=cn(o.lobId); sc2[n]=(sc2[n]||0)+1; });
       var si = Object.entries(sc2).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       document.getElementById('shippedMeta').textContent = si.length ? si.length+' clients' : 'none yet';
       buildBars('shippedBar', si, 'shipped');
+
+      // All orders by client
       var cc = {};
       orders.forEach(function(o){ var n=cn(o.lobId); cc[n]=(cc[n]||0)+1; });
       var ci = Object.entries(cc).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       var mx = ci[0] ? ci[0].c : 1;
       document.getElementById('bar').innerHTML = ci.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
       document.getElementById('bm').textContent = ci.length+' clients';
-      document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.totalFreightCharge?'$'+Number(o.totalFreightCharge).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
+
+      document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.freight?'$'+Number(o.freight).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
     })
     .catch(function(e){ document.getElementById('sT').textContent='Err'; document.getElementById('awaitBar').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
