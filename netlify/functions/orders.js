@@ -25,17 +25,8 @@ function infoplusGet(path) {
 
 exports.handler = async function(event, context) {
   try {
-    const now = new Date();
-    const yyyy = now.getUTCFullYear();
-    const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(now.getUTCDate()).padStart(2, '0');
-    const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
-
-    // No quotes around date - just like orderNo gt 0 has no quotes
-    const path = '/infoplus-wms/api/beta/order/search?filter=modifyDate%20gt%20' + encodeURIComponent(start) + '&limit=500&sort=!orderDate';
-
-    const result = await infoplusGet(path);
-    const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
+    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate');
+    const orders = result.response || result || [];
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
     orders.forEach(o => {
