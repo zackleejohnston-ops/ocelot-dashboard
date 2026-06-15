@@ -35,12 +35,14 @@ exports.handler = async function(event, context) {
     const mm2 = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
     const dd2 = String(tomorrow.getUTCDate()).padStart(2, '0');
 
-    const startOfDay = yyyy + '-' + mm + '-' + dd + 'T04:00:00.000Z';
-    const endOfDay = yyyy2 + '-' + mm2 + '-' + dd2 + 'T04:00:00.000Z';
+    const start = yyyy + '-' + mm + '-' + dd + 'T04:00:00.000Z';
+    const end = yyyy2 + '-' + mm2 + '-' + dd2 + 'T04:00:00.000Z';
 
-    // Build filter manually without encodeURIComponent
-    const filter = "orderDate%20gt%20'" + startOfDay + "'%20and%20orderDate%20lt%20'" + endOfDay + "'";
-    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + filter + '&limit=500&sort=!orderDate');
+    // Match Matt's exact format with single quotes around dates
+    const filterStr = "orderDate gt '" + start + "' and orderDate lt '" + end + "'";
+    const encodedFilter = filterStr.split(' ').join('%20').split("'").join('%27');
+    
+    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + encodedFilter + '&limit=500&sort=!orderDate');
     const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
