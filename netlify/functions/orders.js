@@ -25,8 +25,24 @@ function infoplusGet(path) {
 
 exports.handler = async function(event, context) {
   try {
-    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate');
-    const orders = result.response || result || [];
+    // Eastern time (UTC-4 in summer) midnight = 04:00 UTC
+    const now = new Date();
+    const yyyy = now.getUTCFullYear();
+    const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(now.getUTCDate()).padStart(2, '0');
+    // Tomorrow for the upper bound
+    const tomorrow = new Date(now);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const yyyy2 = tomorrow.getUTCFullYear();
+    const mm2 = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
+    const dd2 = String(tomorrow.getUTCDate()).padStart(2, '0');
+
+    const startOfDay = yyyy + '-' + mm + '-' + dd + 'T04:00:00.000Z';
+    const endOfDay = yyyy2 + '-' + mm2 + '-' + dd2 + 'T04:00:00.000Z';
+
+    const filter = encodeURIComponent("orderDate gt '" + startOfDay + "' and orderDate lt '" + endOfDay + "'");
+    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + filter + '&limit=500&sort=!orderDate');
+    const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
     orders.forEach(o => {
