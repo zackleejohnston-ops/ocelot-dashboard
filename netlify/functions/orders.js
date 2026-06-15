@@ -25,7 +25,15 @@ function infoplusGet(path) {
 
 exports.handler = async function(event, context) {
   try {
-    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate');
+    // Start of today in ISO format
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const startOfDay = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
+
+    const filter = encodeURIComponent("orderDate gt '" + startOfDay + "'");
+    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + filter + '&limit=500&sort=!orderDate');
     const orders = result.response || result || [];
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
