@@ -25,16 +25,17 @@ function infoplusGet(path) {
 
 exports.handler = async function(event, context) {
   try {
+    // Ocelot warehouse is in Perrysburg OH = Eastern time (UTC-4 in summer)
+    // Start of today Eastern = today at 04:00 UTC
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const startOfDay = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
+    const yyyy = today.getUTCFullYear();
+    const mm = String(today.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(today.getUTCDate()).padStart(2, '0');
+    const startOfDay = yyyy + '-' + mm + '-' + dd + 'T04:00:00.000Z';
 
     const filter = 'modifyDate%20gt%20%27' + encodeURIComponent(startOfDay) + '%27';
     const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + filter + '&limit=500&sort=!orderDate');
     
-    // Handle both response formats
     const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
