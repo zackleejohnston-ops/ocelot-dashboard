@@ -29,10 +29,10 @@ exports.handler = async function(event, context) {
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
     const dd = String(now.getUTCDate()).padStart(2, '0');
-    const start = yyyy + '-' + mm + '-' + dd + 'T00%3A00%3A00.000Z';
+    const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
 
-    // Colons encoded as %3A, single quotes as %27
-    const path = '/infoplus-wms/api/beta/order/search?filter=modifyDate%20gt%20%27' + start + '%27&limit=500&sort=!orderDate';
+    // No quotes around date - just like orderNo gt 0 has no quotes
+    const path = '/infoplus-wms/api/beta/order/search?filter=modifyDate%20gt%20' + encodeURIComponent(start) + '&limit=500&sort=!orderDate';
 
     const result = await infoplusGet(path);
     const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
