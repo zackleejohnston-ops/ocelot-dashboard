@@ -22,18 +22,29 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--g);color:#fff;min
 .upd{font-size:10px;color:var(--gr);}
 .rbtn{background:var(--s2);border:1px solid var(--b);color:var(--gold);padding:5px 12px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
 .rbtn:hover{background:var(--gold);color:var(--g);}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
+.status-row{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
+.stc{background:var(--s);padding:12px 16px;text-align:center;}
+.stl{font-size:8px;font-weight:600;letter-spacing:.1em;color:var(--gr);text-transform:uppercase;margin-bottom:4px;}
+.stv{font-size:22px;font-weight:700;line-height:1;color:#fff;}
+.stc.error .stv{color:#FF8080;}
+.stc.backorder .stv{color:#FF8C42;}
+.stc.onorder .stv{color:var(--g2);}
+.stc.processed .stv{color:#4A9EFF;}
+.stc.shipped .stv{color:#4CAF50;}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
 .sc{background:var(--s);padding:16px 20px;position:relative;}
 .sc::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:2px;}
 .sc:nth-child(1)::after{background:var(--gr);}
 .sc:nth-child(2)::after{background:var(--gold);}
 .sc:nth-child(3)::after{background:#4CAF50;}
-.sc:nth-child(4)::after{background:#A78BFA;}
+.sc:nth-child(4)::after{background:#4A9EFF;}
+.sc:nth-child(5)::after{background:#FF8C42;}
 .sl{font-size:9px;font-weight:600;letter-spacing:.12em;color:var(--gr);text-transform:uppercase;margin-bottom:6px;}
 .sv{font-size:32px;font-weight:700;line-height:1;color:#fff;}
 .sc:nth-child(2) .sv{color:var(--g2);}
 .sc:nth-child(3) .sv{color:#4CAF50;}
-.sc:nth-child(4) .sv{color:#A78BFA;font-size:22px;}
+.sc:nth-child(4) .sv{color:#4A9EFF;font-size:22px;}
+.sc:nth-child(5) .sv{color:#FF8C42;font-size:22px;}
 .ss{font-size:9px;color:var(--gr);margin-top:4px;}
 .grid{padding:16px 24px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .s2{grid-column:span 2;}
@@ -74,21 +85,12 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
 .bpr{background:rgba(74,158,255,.15);color:#4A9EFF;border:1px solid rgba(74,158,255,.3);}
 .bsh{background:rgba(76,175,80,.15);color:#4CAF50;border:1px solid rgba(76,175,80,.3);}
 .bot{background:rgba(154,149,144,.15);color:var(--gr);border:1px solid rgba(154,149,144,.3);}
+.berr{background:rgba(255,128,128,.15);color:#FF8080;border:1px solid rgba(255,128,128,.3);}
+.bbk{background:rgba(255,140,66,.15);color:#FF8C42;border:1px solid rgba(255,140,66,.3);}
 .sbox{padding:24px;text-align:center;color:var(--gr);font-size:12px;}
 .ftr{padding:10px 24px;border-top:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;}
 .fb{font-size:9px;color:var(--gr);letter-spacing:.1em;}
 .err{color:#FF8080;font-size:11px;padding:12px;}
-.status-row{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
-.stc{background:var(--s);padding:12px 16px;text-align:center;}
-.stl{font-size:8px;font-weight:600;letter-spacing:.1em;color:var(--gr);text-transform:uppercase;margin-bottom:4px;}
-.stv{font-size:22px;font-weight:700;line-height:1;color:#fff;}
-.stc.error .stv{color:#FF8080;}
-.stc.backorder .stv{color:#FF8C42;}
-.stc.onorder .stv{color:var(--g2);}
-.stc.processed .stv{color:#4A9EFF;}
-.stc.shipped .stv{color:#4CAF50;}
-.berr{background:rgba(255,128,128,.15);color:#FF8080;border:1px solid rgba(255,128,128,.3);}
-.bbk{background:rgba(255,140,66,.15);color:#FF8C42;border:1px solid rgba(255,140,66,.3);}
 </style>
 </head>
 <body>
@@ -120,7 +122,8 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
   <div class="sc"><div class="sl">Total Orders</div><div class="sv" id="sT">-</div><div class="ss">Last 50 orders</div></div>
   <div class="sc"><div class="sl">On Order</div><div class="sv" id="sO">-</div><div class="ss">Awaiting fulfillment</div></div>
   <div class="sc"><div class="sl">Shipped</div><div class="sv" id="sS">-</div><div class="ss">Out the door</div></div>
-  <div class="sc"><div class="sl">Avg Freight</div><div class="sv" id="sF">-</div><div class="ss">From Ehub · last 100 shipments</div></div>
+  <div class="sc"><div class="sl">DHL Avg Freight</div><div class="sv" id="sDHL">-</div><div class="ss">Core margin carrier</div></div>
+  <div class="sc"><div class="sl">FedEx / UPS Avg</div><div class="sv" id="sFU">-</div><div class="ss">Heavier shipments</div></div>
 </div>
 
 <div class="grid">
@@ -224,11 +227,18 @@ function loadEhub(){
       document.getElementById('sTr').textContent = tr;
       document.getElementById('sOfd').textContent = ofd;
       document.getElementById('em').textContent = sh.length+' shipments';
-      var rated = sh.filter(function(s){ return s.shipping_service && s.shipping_service.rate && parseFloat(s.shipping_service.rate) > 0; });
-      if(rated.length){
-        var avg = rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length;
-        document.getElementById('sF').textContent = '$'+avg.toFixed(2);
+
+      var dhl = sh.filter(function(s){ return s.shipping_service && s.shipping_service.carrier_code && s.shipping_service.carrier_code.toLowerCase().indexOf('dhl') > -1 && parseFloat(s.shipping_service.rate) > 0; });
+      if(dhl.length){
+        var dhlAvg = dhl.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / dhl.length;
+        document.getElementById('sDHL').textContent = '$'+dhlAvg.toFixed(2);
       }
+      var fu = sh.filter(function(s){ var c=(s.shipping_service&&s.shipping_service.carrier_code||'').toLowerCase(); return (c.indexOf('fedex')>-1||c.indexOf('ups')>-1) && parseFloat(s.shipping_service.rate) > 0; });
+      if(fu.length){
+        var fuAvg = fu.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / fu.length;
+        document.getElementById('sFU').textContent = '$'+fuAvg.toFixed(2);
+      }
+
       var items = [];
       if(del) items.push({l:'Delivered',v:del,c:'#4CAF50'});
       if(tr) items.push({l:'In Transit',v:tr,c:'#4A9EFF'});
