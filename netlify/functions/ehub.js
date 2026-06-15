@@ -1,11 +1,16 @@
 const https = require('https');
 exports.handler = async function(event, context) {
   const EH_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpYXQiOjE3ODExMDM3MjksImRhdGEiOnsidXNlciI6eyJpZCI6MjExMzEsImN1c3RvbWVyX2lkIjoxMDgxMSwiZW1haWwiOiJ6YWNrbGVlam9obnN0b25AZ21haWwuY29tIn0sInNjb3BlcyI6WyJhcGlfcHVibGljIl19fQ.t_axIrFMt0vSjiZ3sQuignuOkadEV2Ux5r2717C6gAKsbIR-e1Ak7RCnaTVbX1SLfSf3AKniSj7aSX7Gj24h9A';
+
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today - 30 * 24 * 60 * 60 * 1000);
+  const dateStr = thirtyDaysAgo.toISOString().split('T')[0];
+
   return new Promise((resolve) => {
     const options = {
       hostname: 'app.ehub.com',
       port: 443,
-      path: '/api/v2/shipments?per_page=100&sort=shipped_at&direction=desc',
+      path: '/api/v2/shipments?per_page=100&shipped_at_min=' + dateStr,
       method: 'GET',
       headers: {
         'Authorization': 'Bearer ' + EH_KEY,
