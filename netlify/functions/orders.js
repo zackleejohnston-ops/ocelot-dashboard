@@ -31,11 +31,11 @@ exports.handler = async function(event, context) {
     const dd = String(now.getUTCDate()).padStart(2, '0');
     const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
 
-    // Double quotes around value, gte operator
     const filterStr = 'createDate gte "' + start + '"';
     const encodedFilter = encodeURIComponent(filterStr);
 
-    const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + encodedFilter + '&limit=500&sort=!orderDate');
+    // Try v2.0 instead of beta
+    const result = await infoplusGet('/infoplus-wms/api/v2.0/order/search?filter=' + encodedFilter + '&limit=500&sort=!orderDate');
     const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
