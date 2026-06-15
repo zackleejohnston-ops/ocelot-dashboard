@@ -25,14 +25,14 @@ function infoplusGet(path) {
 
 exports.handler = async function(event, context) {
   try {
-    // Start of today in ISO format
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     const startOfDay = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
 
-    const filter = encodeURIComponent("orderDate gt '" + startOfDay + "'");
+    // Use modifyDate which is confirmed in Infoplus docs
+    const filter = 'modifyDate%20gt%20%27' + encodeURIComponent(startOfDay) + '%27';
     const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + filter + '&limit=500&sort=!orderDate');
     const orders = result.response || result || [];
 
