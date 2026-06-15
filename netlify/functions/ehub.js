@@ -5,7 +5,7 @@ exports.handler = async function(event, context) {
     const options = {
       hostname: 'app.ehub.com',
       port: 443,
-      path: '/api/v2/shipments?per_page=100&page=100',
+      path: '/api/v2/shipments?per_page=100&page=500',
       method: 'GET',
       headers: {
         'Authorization': 'Bearer ' + EH_KEY,
