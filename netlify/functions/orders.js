@@ -31,10 +31,11 @@ exports.handler = async function(event, context) {
     const dd = String(today.getDate()).padStart(2, '0');
     const startOfDay = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
 
-    // Use modifyDate which is confirmed in Infoplus docs
     const filter = 'modifyDate%20gt%20%27' + encodeURIComponent(startOfDay) + '%27';
     const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + filter + '&limit=500&sort=!orderDate');
-    const orders = result.response || result || [];
+    
+    // Handle both response formats
+    const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
     orders.forEach(o => {
