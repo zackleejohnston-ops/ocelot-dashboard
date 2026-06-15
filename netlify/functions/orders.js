@@ -29,16 +29,9 @@ exports.handler = async function(event, context) {
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
     const dd = String(now.getUTCDate()).padStart(2, '0');
-    const tomorrow = new Date(now);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    const yyyy2 = tomorrow.getUTCFullYear();
-    const mm2 = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
-    const dd2 = String(tomorrow.getUTCDate()).padStart(2, '0');
-
     const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
-    const end = yyyy2 + '-' + mm2 + '-' + dd2 + 'T00:00:00.000Z';
 
-    const filterStr = "orderDate ge '" + start + "' and orderDate lt '" + end + "'";
+    const filterStr = "createDate gt '" + start + "'";
     const encodedFilter = filterStr.split(' ').join('%20').split("'").join('%27');
     
     const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + encodedFilter + '&limit=500&sort=!orderDate');
