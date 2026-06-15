@@ -31,11 +31,10 @@ exports.handler = async function(event, context) {
     const dd = String(now.getUTCDate()).padStart(2, '0');
     const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
 
-    const filterStr = 'createDate gte "' + start + '"';
-    const encodedFilter = encodeURIComponent(filterStr);
+    // Exact format from Infoplus KB docs — single quotes, modifyDate field
+    const path = '/infoplus-wms/api/beta/order/search?filter=modifyDate%20gt%20%27' + start + '%27&limit=500&sort=!orderDate';
 
-    // Try v2.0 instead of beta
-    const result = await infoplusGet('/infoplus-wms/api/v2.0/order/search?filter=' + encodedFilter + '&limit=500&sort=!orderDate');
+    const result = await infoplusGet(path);
     const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
 
     const counts = { Pending:0, Error:0, 'On Order':0, Processed:0, Shipped:0, 'Back Order':0, Cancelled:0 };
