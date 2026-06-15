@@ -35,10 +35,9 @@ exports.handler = async function(event, context) {
     const mm2 = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
     const dd2 = String(tomorrow.getUTCDate()).padStart(2, '0');
 
-    const start = yyyy + '-' + mm + '-' + dd + 'T04:00:00.000Z';
-    const end = yyyy2 + '-' + mm2 + '-' + dd2 + 'T04:00:00.000Z';
+    const start = yyyy + '-' + mm + '-' + dd + 'T00:00:00.000Z';
+    const end = yyyy2 + '-' + mm2 + '-' + dd2 + 'T00:00:00.000Z';
 
-    // Match Matt's exact format with single quotes around dates
     const filterStr = "orderDate gt '" + start + "' and orderDate lt '" + end + "'";
     const encodedFilter = filterStr.split(' ').join('%20').split("'").join('%27');
     
