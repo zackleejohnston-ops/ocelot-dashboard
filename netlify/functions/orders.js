@@ -25,12 +25,10 @@ function infoplusGet(path) {
 
 exports.handler = async function(event, context) {
   try {
-    // Eastern time (UTC-4 in summer) midnight = 04:00 UTC
     const now = new Date();
     const yyyy = now.getUTCFullYear();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
     const dd = String(now.getUTCDate()).padStart(2, '0');
-    // Tomorrow for the upper bound
     const tomorrow = new Date(now);
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     const yyyy2 = tomorrow.getUTCFullYear();
@@ -40,7 +38,8 @@ exports.handler = async function(event, context) {
     const startOfDay = yyyy + '-' + mm + '-' + dd + 'T04:00:00.000Z';
     const endOfDay = yyyy2 + '-' + mm2 + '-' + dd2 + 'T04:00:00.000Z';
 
-    const filter = encodeURIComponent("orderDate gt '" + startOfDay + "' and orderDate lt '" + endOfDay + "'");
+    // Build filter manually without encodeURIComponent
+    const filter = "orderDate%20gt%20'" + startOfDay + "'%20and%20orderDate%20lt%20'" + endOfDay + "'";
     const result = await infoplusGet('/infoplus-wms/api/beta/order/search?filter=' + filter + '&limit=500&sort=!orderDate');
     const orders = Array.isArray(result) ? result : (result.response || result.orders || []);
 
