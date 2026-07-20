@@ -1,7 +1,7 @@
 const https = require('https');
-
+ 
 const API_KEY = process.env.IP_KEY || '44820105A0C483295BC3DD05E404E55E72EA3A6FAA470C02A476DDCB3C2A2AE5';
-
+ 
 function infoplusGet(path) {
   return new Promise((resolve, reject) => {
     const options = {
@@ -23,7 +23,15 @@ function infoplusGet(path) {
     req.end();
   });
 }
-
+ 
+// Find the records array regardless of how Infoplus wraps the response.
+function unwrap(result) {
+  if (Array.isArray(result)) return result;
+  const arr = result && (result.response || result.records || result.data
+    || result.results || result.order || result.list);
+  return Array.isArray(arr) ? arr : [];
+}
+ 
 function dayStr(daysBack) {
   const d = new Date();
   d.setDate(d.getDate() - daysBack);
@@ -31,7 +39,7 @@ function dayStr(daysBack) {
          String(d.getMonth() + 1).padStart(2, '0') + '-' +
          String(d.getDate()).padStart(2, '0');
 }
-
+ 
 // Infoplus status strings don't match tile labels 1:1 (e.g. live status is
 // "Processing", not "Processed"). Normalize so nothing falls through uncounted.
 const NORM = {
@@ -40,23 +48,23 @@ const NORM = {
   backorder: 'Back Order', back: 'Back Order',
   cancelled: 'Cancelled', canceled: 'Cancelled'
 };
-
+ 
 exports.handler = async function (event, context) {
   try {
     const yesterday = dayStr(1);
     const weekAgo = dayStr(7);
-
+ 
     // ---- 1) Status counts + recent-orders table (unchanged behavior) ----
     const ordersRes = await infoplusGet(
       '/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate'
     );
-    const orders = ordersRes.response || ordersRes || [];
+    const orders = unwrap(ordersRes);
     const counts = { Pending: 0, Error: 0, 'On Order': 0, Processed: 0, Shipped: 0, 'Back Order': 0, Cancelled: 0 };
     orders.forEach(o => {
       const k = NORM[(o.status || '').toLowerCase().replace(/[^a-z]/g, '')];
       if (k) counts[k]++;
     });
-
+ 
     // ---- 2) Shipped orders for freight + shipment counts, paged at 250 ----
     // Filter: shipped, shipDate within the last 7 days. shipDate is the honest
     // "left the door" field (per the docs) despite occasional stage/backdate edges.
@@ -66,21 +74,21 @@ exports.handler = async function (event, context) {
     const shipRes = await infoplusGet(
       '/infoplus-wms/api/beta/order/search?filter=' + shipFilter + '&limit=250&sort=!shipDate'
     );
-    const shipped = shipRes.response || shipRes || [];
-
+    const shipped = unwrap(shipRes);
+ 
     // Aggregate freight + shipment counts by LOB for yesterday and rolling 7 days.
     const byClient = {}; // lobId -> { lobId, yShip, yFreight, wShip, wFreight }
     let yShipTotal = 0, yFreightTotal = 0, wShipTotal = 0, wFreightTotal = 0;
     const daily = {};    // 'YYYY-MM-DD' -> shipment count (for the 7-day bar)
-
+ 
     shipped.forEach(o => {
       const lob = o.lobId != null ? String(o.lobId) : 'unknown';
       const freight = Number(o.freightAmount) || 0;
       const day = (o.shipDate || '').slice(0, 10);
-
+ 
       if (!byClient[lob]) byClient[lob] = { lobId: lob, yShip: 0, yFreight: 0, wShip: 0, wFreight: 0 };
       const c = byClient[lob];
-
+ 
       if (day >= weekAgo) {
         c.wShip++; c.wFreight += freight; wShipTotal++; wFreightTotal += freight;
         daily[day] = (daily[day] || 0) + 1;
@@ -89,16 +97,16 @@ exports.handler = async function (event, context) {
         c.yShip++; c.yFreight += freight; yShipTotal++; yFreightTotal += freight;
       }
     });
-
+ 
     // Build an ordered 7-day series (oldest -> newest) so the bar chart is stable.
     const series = [];
     for (let i = 7; i >= 1; i--) {
       const d = dayStr(i);
       series.push({ day: d, count: daily[d] || 0 });
     }
-
+ 
     const clients = Object.values(byClient).sort((a, b) => b.wShip - a.wShip);
-
+ 
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
