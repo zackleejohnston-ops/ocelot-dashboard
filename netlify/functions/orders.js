@@ -102,9 +102,10 @@ exports.handler = async function (event, context) {
       );
       const shipBase = '/infoplus-wms/api/beta/order/search?filter=' + shipFilter;
       // Hard cap: 6 pages / ~5s. Enough to sample the week; can't blow memory/time.
-      // Sort by orderNo (the order table's id field per Infoplus) so live
-      // changes don't reshuffle rows between pages. 'id' is not a valid field here.
-      const shipPaged = await paginate(shipBase, 'orderNo', 5000, 6);
+      // Sort NEWEST first (!orderNo) so the page cap captures recent shipments,
+      // not the oldest order numbers. Ascending was fetching stale orders and
+      // stopping before it reached the last few days.
+      const shipPaged = await paginate(shipBase, '!orderNo', 5000, 6);
       const shipped = shipPaged.rows;
  
       const byClient = {};
@@ -129,6 +130,17 @@ exports.handler = async function (event, context) {
       yFreightAvg = yShipTotal ? yFreightTotal / yShipTotal : 0;
       wFreightAvg = wShipTotal ? wFreightTotal / wShipTotal : 0;
       shipDiag = { shippedCount: shipped.length, shipError: shipPaged.error || null, shipTruncated: shipPaged.truncated || false };
+      // Surface the field names of one order + any field whose name hints at
+      // freight/cost/postage, so we can identify the real freight field.
+      if (shipped.length) {
+        const o0 = shipped[0];
+        const keys = Object.keys(o0);
+        const freightish = {};
+        keys.forEach(k => {
+          if (/freight|cost|postage|ship.*charge|charge|rate|amount/i.test(k)) freightish[k] = o0[k];
+        });
+        shipDiag.sampleFields = { allKeys: keys, freightCandidates: freightish };
+      }
     } catch (shipErr) {
       // 7-day bar unavailable, but core dashboard is fine.
       shipDiag = { shippedCount: 0, shipError: String(shipErr && shipErr.message || shipErr), shipTruncated: true };
@@ -148,7 +160,8 @@ exports.handler = async function (event, context) {
         yesterday, weekAgo,
         shippedCount: shipDiag.shippedCount,
         shipError: shipDiag.shipError,
-        shipTruncated: shipDiag.shipTruncated
+        shipTruncated: shipDiag.shipTruncated,
+        sampleFields: shipDiag.sampleFields || null
       })
     };
   } catch (err) {
