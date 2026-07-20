@@ -318,16 +318,16 @@ function loadBilling(){
       var clients = d.clients || [];
       document.getElementById('billTotal').textContent = money(d.latestTotal);
       // Split out Two Leaves (LOB code 'TWO') so Richard sees earned-vs-subsidy.
-      var tl = clients.filter(function(c){ return String(c.lob)==='TWO'; })[0];
+      var tl = clients.filter(function(c){ return String(c.lob)==='22352'; })[0];
       var tlAmt = tl ? tl.latestWeek : 0;
       var exTl = (d.latestTotal||0) - tlAmt;
       document.getElementById('billMeta').textContent = clients.length+' clients'+(d.latestEnd?' · week ending '+shortDay(d.latestEnd):'');
       document.getElementById('billTL').innerHTML = 'Of which Two Leaves <b>'+money(tlAmt)+'</b> · Everyone else <b>'+money(exTl)+'</b>';
       if(!clients.length){ document.getElementById('billList').innerHTML='<div class="sbox">No billed lines in range</div>'; return; }
       document.getElementById('billList').innerHTML = clients.map(function(c){
-        var isTL = String(c.lob)==='TWO';
+        var isTL = String(c.lob)==='22352';
         return '<div class="bill-row">'
-             + '<div class="bc'+(isTL?' tl':'')+'">'+(c.name||c.lob)+(isTL?'<span class="btag">subsidy</span>':'')+'</div>'
+             + '<div class="bc'+(isTL?' tl':'')+'">'+cn(c.lob)+(isTL?'<span class="btag">subsidy</span>':'')+'</div>'
              + '<div class="ba">'+money(c.latestWeek)+'</div></div>';
       }).join('');
     })
