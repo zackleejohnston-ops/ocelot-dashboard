@@ -97,7 +97,9 @@ exports.handler = async function (event, context) {
         totalWeek7,       // sum billed in the rolling 7-day window
         latestTotal,      // sum of each client's most recent billed week
         lineCount: safeLines.length,
-        rawShape: Array.isArray(result) ? 'array' : Object.keys(result || {}).join(',')
+        rawShape: Array.isArray(result) ? 'array' : Object.keys(result || {}).join(','),
+        infoplusError: (result && result.errors) ? result.errors : null,
+        attemptedPath: path
       })
     };
   } catch (err) {
@@ -108,3 +110,4 @@ exports.handler = async function (event, context) {
     };
   }
 };
+ 
