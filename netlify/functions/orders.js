@@ -20,6 +20,7 @@ function infoplusGet(path) {
       });
     });
     req.on('error', reject);
+    req.setTimeout(4000, () => { req.destroy(); resolve([]); }); // don't hang the function
     req.end();
   });
 }
@@ -34,12 +35,17 @@ function unwrap(result) {
  
 // Page through Infoplus 250 at a time until a page returns < 250 (Jen's rule).
 // Sort on an id field so live changes don't reshuffle rows between pages.
-async function paginate(basePath, sortField) {
+// Hard stops: page cap AND a wall-clock budget, so we never hit Netlify's
+// 10s function limit — better to return partial data than a 502.
+async function paginate(basePath, sortField, budgetMs) {
   const LIMIT = 250;
   const MAX_PAGES = 40;
+  const start = Date.now();
   let all = [];
   let firstErr = null;
+  let truncated = false;
   for (let page = 1; page <= MAX_PAGES; page++) {
+    if (Date.now() - start > (budgetMs || 7000)) { truncated = true; break; }
     const path = basePath + '&limit=' + LIMIT + '&page=' + page + '&sort=' + sortField;
     const res = await infoplusGet(path);
     if (res && res.errors && !firstErr) firstErr = res.errors;
@@ -47,7 +53,7 @@ async function paginate(basePath, sortField) {
     all = all.concat(rows);
     if (rows.length < LIMIT) break;
   }
-  return { rows: all, error: firstErr };
+  return { rows: all, error: firstErr, truncated: truncated };
 }
  
 function dayStr(daysBack) {
@@ -90,7 +96,7 @@ exports.handler = async function (event, context) {
       'status eq "Shipped" and shipDate gt "' + weekAgo + '"'
     );
     const shipBase = '/infoplus-wms/api/beta/order/search?filter=' + shipFilter;
-    const shipPaged = await paginate(shipBase, 'id');
+    const shipPaged = await paginate(shipBase, 'id', 7000);
     const shipped = shipPaged.rows;
  
     // Aggregate freight + shipment counts by LOB for yesterday and rolling 7 days.
@@ -137,6 +143,7 @@ exports.handler = async function (event, context) {
         yesterday, weekAgo,
         shippedCount: shipped.length,
         shipError: shipPaged.error || null,
+        shipTruncated: shipPaged.truncated || false,
         sampleShipDate: shipped.length ? shipped[0].shipDate : null
       })
     };
