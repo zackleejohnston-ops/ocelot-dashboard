@@ -1,4 +1,3 @@
-
 const https = require('https');
  
 // Infoplus 3PL billing lives in the Invoice Worksheet Line table, separate from orders.
@@ -27,6 +26,7 @@ function infoplusGet(path) {
       });
     });
     req.on('error', reject);
+    req.setTimeout(4000, () => { req.destroy(); resolve([]); });
     req.end();
   });
 }
@@ -42,12 +42,14 @@ function unwrap(result) {
 // Page through Infoplus 250 at a time (its max) until a page returns < 250.
 // Per Infoplus (Jen): use the `page` param with `limit`; sort on an id field
 // so live changes don't reshuffle rows mid-pull. Cap pages as a safety valve.
-async function paginate(basePath, sortField) {
+async function paginate(basePath, sortField, budgetMs) {
   const LIMIT = 250;
   const MAX_PAGES = 40; // 10,000 rows ceiling — plenty, prevents runaway loops
+  const start = Date.now();
   let all = [];
   let firstErr = null;
   for (let page = 1; page <= MAX_PAGES; page++) {
+    if (Date.now() - start > (budgetMs || 7000)) break;
     const path = basePath + '&limit=' + LIMIT + '&page=' + page + '&sort=' + sortField;
     const res = await infoplusGet(path);
     if (res && res.errors && !firstErr) firstErr = res.errors;
@@ -76,7 +78,7 @@ exports.handler = async function (event, context) {
     const basePath = '/infoplus-wms/api/beta/invoiceWorksheetLine/search?filter=' + filter;
  
     // Sort on the record id so live edits don't reshuffle rows between pages.
-    const paged = await paginate(basePath, 'id');
+    const paged = await paginate(basePath, 'id', 7000);
     const safeLines = paged.rows;
  
     const yesterday = dayStr(1);
@@ -129,4 +131,3 @@ exports.handler = async function (event, context) {
     };
   }
 };
- 
