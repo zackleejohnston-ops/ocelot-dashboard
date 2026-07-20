@@ -51,7 +51,12 @@ exports.handler = async function (event, context) {
                + '&sort=!endDate';
  
     const result = await infoplusGet(path);
-    const lines = result.response || result || [];
+    // Infoplus may return a bare array, or wrap it under one of several keys.
+    // Find the array no matter the shape so we never crash on .forEach.
+    const lines = Array.isArray(result) ? result
+      : (result.response || result.records || result.data || result.results
+         || result.invoiceWorksheetLine || result.list || []);
+    const safeLines = Array.isArray(lines) ? lines : [];
  
     const yesterday = dayStr(1);
     const weekAgo = dayStr(7);
@@ -62,7 +67,7 @@ exports.handler = async function (event, context) {
     let totalYesterday = 0;
     let totalWeek7 = 0;
  
-    lines.forEach(line => {
+    safeLines.forEach(line => {
       const lob = line.lobId != null ? String(line.lobId) : 'unknown';
       const amt = Number(line.total) || 0;
       const end = (line.endDate || '').slice(0, 10);
@@ -91,7 +96,8 @@ exports.handler = async function (event, context) {
         totalYesterday,   // sum billed with endDate == yesterday
         totalWeek7,       // sum billed in the rolling 7-day window
         latestTotal,      // sum of each client's most recent billed week
-        lineCount: lines.length
+        lineCount: safeLines.length,
+        rawShape: Array.isArray(result) ? 'array' : Object.keys(result || {}).join(',')
       })
     };
   } catch (err) {
@@ -102,4 +108,3 @@ exports.handler = async function (event, context) {
     };
   }
 };
- 
