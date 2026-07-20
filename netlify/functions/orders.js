@@ -1,4 +1,4 @@
-const https = require('https');
+onst https = require('https');
  
 const API_KEY = process.env.IP_KEY || '44820105A0C483295BC3DD05E404E55E72EA3A6FAA470C02A476DDCB3C2A2AE5';
  
@@ -30,6 +30,24 @@ function unwrap(result) {
   const arr = result && (result.response || result.records || result.data
     || result.results || result.order || result.list);
   return Array.isArray(arr) ? arr : [];
+}
+ 
+// Page through Infoplus 250 at a time until a page returns < 250 (Jen's rule).
+// Sort on an id field so live changes don't reshuffle rows between pages.
+async function paginate(basePath, sortField) {
+  const LIMIT = 250;
+  const MAX_PAGES = 40;
+  let all = [];
+  let firstErr = null;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const path = basePath + '&limit=' + LIMIT + '&page=' + page + '&sort=' + sortField;
+    const res = await infoplusGet(path);
+    if (res && res.errors && !firstErr) firstErr = res.errors;
+    const rows = unwrap(res);
+    all = all.concat(rows);
+    if (rows.length < LIMIT) break;
+  }
+  return { rows: all, error: firstErr };
 }
  
 function dayStr(daysBack) {
@@ -65,16 +83,15 @@ exports.handler = async function (event, context) {
       if (k) counts[k]++;
     });
  
-    // ---- 2) Shipped orders for freight + shipment counts, paged at 250 ----
-    // Filter: shipped, shipDate within the last 7 days. shipDate is the honest
-    // "left the door" field (per the docs) despite occasional stage/backdate edges.
+    // ---- 2) Shipped orders for freight + shipment counts, ALL pages ----
+    // ~300 orders/day means a 7-day window far exceeds one 250-row page, so we
+    // page through everything. Sort by id per Infoplus guidance.
     const shipFilter = encodeURIComponent(
       'status eq "Shipped" and shipDate gt "' + weekAgo + '"'
     );
-    const shipRes = await infoplusGet(
-      '/infoplus-wms/api/beta/order/search?filter=' + shipFilter + '&limit=250&sort=!shipDate'
-    );
-    const shipped = unwrap(shipRes);
+    const shipBase = '/infoplus-wms/api/beta/order/search?filter=' + shipFilter;
+    const shipPaged = await paginate(shipBase, 'id');
+    const shipped = shipPaged.rows;
  
     // Aggregate freight + shipment counts by LOB for yesterday and rolling 7 days.
     const byClient = {}; // lobId -> { lobId, yShip, yFreight, wShip, wFreight }
@@ -117,7 +134,10 @@ exports.handler = async function (event, context) {
         yShipTotal, yFreightAvg: yShipTotal ? yFreightTotal / yShipTotal : 0,
         wShipTotal, wFreightAvg: wShipTotal ? wFreightTotal / wShipTotal : 0,
         series,          // 7-day daily shipment counts, oldest -> newest
-        yesterday, weekAgo
+        yesterday, weekAgo,
+        shippedCount: shipped.length,
+        shipError: shipPaged.error || null,
+        sampleShipDate: shipped.length ? shipped[0].shipDate : null
       })
     };
   } catch (err) {
@@ -128,3 +148,4 @@ exports.handler = async function (event, context) {
     };
   }
 };
+ 
