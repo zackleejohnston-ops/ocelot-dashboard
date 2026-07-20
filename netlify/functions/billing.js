@@ -69,45 +69,55 @@ function dayStr(daysBack) {
          String(d.getDate()).padStart(2, '0');
 }
  
+// Map Infoplus LOB codes to display names (from the billing worksheet grid).
+const LOB_NAMES = {
+  TWO: 'Two Leaves and a Bud', JOY: 'Joymode', SOL: 'Sol Science',
+  BAR: 'Barbershop Books', PRIM: 'Primitive Scientific', TOTAL: 'Total Hydration',
+  VIT: 'Vitamin iQ', MONT: 'Monteleone Peppers', OK: 'Oklahoma Smokes'
+};
+const TWO_LEAVES_CODE = 'TWO';
+ 
+// Pull a value trying several possible JSON key spellings.
+function pick(obj, keys) {
+  for (const k of keys) {
+    if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+  }
+  return undefined;
+}
+ 
 exports.handler = async function (event, context) {
   try {
-    // Pull the most recent billing worksheet lines. Filter on endDate so we get
-    // whatever was billed recently; page through all results; bucket in JS.
-    const since = dayStr(35); // wide window so we always catch the latest weekly run
-    const filter = encodeURIComponent('endDate gt "' + since + '"');
-    const basePath = '/infoplus-wms/api/beta/invoiceWorksheetLine/search?filter=' + filter;
+    // Billing worksheets: one row per client per week (e.g. "Joymode Billing 7/19").
+    // Pull recent worksheets, newest first. No filter first — the search endpoint
+    // was returning zero WITH a date filter, so grab all and bucket in JS.
+    const basePath = '/infoplus-wms/api/beta/invoiceWorksheet/search?filter='
+      + encodeURIComponent('id gt 0');
+    const paged = await paginate(basePath, '!id', 7000);
+    const rows = paged.rows;
  
-    // Sort on the record id so live edits don't reshuffle rows between pages.
-    // Sort on a known-valid field (endDate) so Infoplus doesn't reject the query.
-    // Not a true id sort, but stable enough for a 35-day billing window.
-    const paged = await paginate(basePath, '!endDate', 7000);
-    const safeLines = paged.rows;
+    // Identify the newest End Date present, then treat that as "latest week".
+    // Field names vary in JSON; try common spellings for each.
+    const norm = rows.map(r => ({
+      lob: String(pick(r, ['lobId', 'lob', 'lobCode', 'lineOfBusiness']) || '').toUpperCase(),
+      total: Number(pick(r, ['total', 'totalAmount', 'amount', 'invoiceTotal']) || 0),
+      end: String(pick(r, ['endDate', 'end_date', 'periodEnd', 'toDate']) || '').slice(0, 10),
+      start: String(pick(r, ['startDate', 'start_date', 'periodStart', 'fromDate']) || '').slice(0, 10),
+      name: String(pick(r, ['name', 'worksheetName', 'description']) || ''),
+      status: String(pick(r, ['status', 'billingStatus']) || '')
+    })).filter(r => r.lob && r.total);
  
-    const yesterday = dayStr(1);
-    const weekAgo = dayStr(7);
+    // Newest end date across all rows = the latest billing week.
+    let latestEnd = '';
+    norm.forEach(r => { if (r.end > latestEnd) latestEnd = r.end; });
  
-    // Aggregate by LOB (client) for two windows: yesterday and rolling 7 days.
-    // Also track the single most-recent billed week per client for Richard's strip.
-    const byClient = {};   // lobId -> { name, yesterday, week7, latestWeek, latestEnd }
-    let totalYesterday = 0;
-    let totalWeek7 = 0;
- 
-    safeLines.forEach(line => {
-      const lob = line.lobId != null ? String(line.lobId) : 'unknown';
-      const amt = Number(line.total) || 0;
-      const end = (line.endDate || '').slice(0, 10);
- 
-      if (!byClient[lob]) {
-        byClient[lob] = { lobId: lob, yesterday: 0, week7: 0, latestWeek: 0, latestEnd: '' };
-      }
-      const c = byClient[lob];
- 
-      if (end === yesterday) { c.yesterday += amt; totalYesterday += amt; }
-      if (end >= weekAgo)    { c.week7 += amt;     totalWeek7 += amt; }
- 
-      // Latest billed week = lines sharing the newest endDate we've seen for this client.
-      if (end > c.latestEnd) { c.latestEnd = end; c.latestWeek = amt; }
-      else if (end === c.latestEnd) { c.latestWeek += amt; }
+    // Sum the latest week per client (skip TEST rows by name if present).
+    const byClient = {};
+    norm.forEach(r => {
+      if (/test/i.test(r.name)) return; // ignore the TEST worksheets
+      if (r.end !== latestEnd) return;
+      const code = r.lob;
+      if (!byClient[code]) byClient[code] = { lob: code, name: LOB_NAMES[code] || code, latestWeek: 0, latestEnd: r.end };
+      byClient[code].latestWeek += r.total;
     });
  
     const clients = Object.values(byClient).sort((a, b) => b.latestWeek - a.latestWeek);
@@ -117,12 +127,14 @@ exports.handler = async function (event, context) {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({
-        clients,          // per-client: yesterday, week7, latestWeek, latestEnd
-        totalYesterday,   // sum billed with endDate == yesterday
-        totalWeek7,       // sum billed in the rolling 7-day window
-        latestTotal,      // sum of each client's most recent billed week
-        lineCount: safeLines.length,
-        infoplusError: paged.error || null
+        clients,          // per-client latest-week totals
+        latestTotal,      // sum across clients for the latest week
+        latestEnd,        // the week-ending date used
+        lineCount: rows.length,
+        infoplusError: paged.error || null,
+        // Diagnostic: exact JSON keys + first raw row, so we can confirm field names.
+        rawKeys: rows.length ? Object.keys(rows[0]) : [],
+        rawSample: rows.length ? rows[0] : null
       })
     };
   } catch (err) {
