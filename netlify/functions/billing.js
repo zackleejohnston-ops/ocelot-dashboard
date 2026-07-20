@@ -69,13 +69,14 @@ function dayStr(daysBack) {
          String(d.getDate()).padStart(2, '0');
 }
  
-// Map Infoplus LOB codes to display names (from the billing worksheet grid).
+// Map Infoplus numeric lobId -> display name. The billing worksheet returns
+// the numeric lobId (e.g. 22352), not the text code, so we map by number.
 const LOB_NAMES = {
-  TWO: 'Two Leaves and a Bud', JOY: 'Joymode', SOL: 'Sol Science',
-  BAR: 'Barbershop Books', PRIM: 'Primitive Scientific', TOTAL: 'Total Hydration',
-  VIT: 'Vitamin iQ', MONT: 'Monteleone Peppers', OK: 'Oklahoma Smokes'
+  '22344': 'Joymode', '22349': 'Sol Science', '22352': 'Two Leaves and a Bud',
+  '22351': 'Total Hydration', '22353': 'Vitamin iQ', '22354': 'Primitive Scientific',
+  '22341': 'Barbershop Books', '22350': 'Vitamin iQ'
 };
-const TWO_LEAVES_CODE = 'TWO';
+const TWO_LEAVES_CODE = '22352';
  
 // Pull a value trying several possible JSON key spellings.
 function pick(obj, keys) {
@@ -98,7 +99,7 @@ exports.handler = async function (event, context) {
     // Identify the newest End Date present, then treat that as "latest week".
     // Field names vary in JSON; try common spellings for each.
     const norm = rows.map(r => ({
-      lob: String(pick(r, ['lobId', 'lob', 'lobCode', 'lineOfBusiness']) || '').toUpperCase(),
+      lob: String(pick(r, ['lobId', 'lob', 'lobCode', 'lineOfBusiness']) || ''),
       total: Number(pick(r, ['total', 'totalAmount', 'amount', 'invoiceTotal']) || 0),
       end: String(pick(r, ['endDate', 'end_date', 'periodEnd', 'toDate']) || '').slice(0, 10),
       start: String(pick(r, ['startDate', 'start_date', 'periodStart', 'fromDate']) || '').slice(0, 10),
