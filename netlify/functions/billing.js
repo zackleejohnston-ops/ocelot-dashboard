@@ -78,7 +78,9 @@ exports.handler = async function (event, context) {
     const basePath = '/infoplus-wms/api/beta/invoiceWorksheetLine/search?filter=' + filter;
  
     // Sort on the record id so live edits don't reshuffle rows between pages.
-    const paged = await paginate(basePath, 'id', 7000);
+    // Sort on a known-valid field (endDate) so Infoplus doesn't reject the query.
+    // Not a true id sort, but stable enough for a 35-day billing window.
+    const paged = await paginate(basePath, '!endDate', 7000);
     const safeLines = paged.rows;
  
     const yesterday = dayStr(1);
