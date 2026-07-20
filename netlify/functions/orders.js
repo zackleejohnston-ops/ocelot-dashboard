@@ -1,4 +1,4 @@
-onst https = require('https');
+const https = require('https');
  
 const API_KEY = process.env.IP_KEY || '44820105A0C483295BC3DD05E404E55E72EA3A6FAA470C02A476DDCB3C2A2AE5';
  
@@ -155,4 +155,3 @@ exports.handler = async function (event, context) {
     };
   }
 };
- 
