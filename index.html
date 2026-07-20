@@ -90,6 +90,29 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
 .ftr{padding:10px 24px;border-top:1px solid var(--b);display:flex;align-items:center;justify-content:space-between;}
 .fb{font-size:9px;color:var(--gr);letter-spacing:.1em;}
 .err{color:#FF8080;font-size:11px;padding:12px;}
+/* Billing strip — Richard's headline: total billed + per-client, Two Leaves flagged */
+.bill{display:grid;grid-template-columns:minmax(240px,340px) 1fr;gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
+.bill-hero{background:linear-gradient(135deg,var(--s2),var(--s));padding:18px 24px;display:flex;flex-direction:column;justify-content:center;}
+.bill-hero .bl{font-size:9px;font-weight:600;letter-spacing:.14em;color:var(--gr);text-transform:uppercase;margin-bottom:8px;}
+.bill-hero .bv{font-size:40px;font-weight:700;line-height:1;color:var(--g2);letter-spacing:-.02em;}
+.bill-hero .bsub{font-size:10px;color:var(--gr);margin-top:8px;}
+.bill-hero .btl{font-size:11px;color:var(--cr);margin-top:10px;padding-top:10px;border-top:1px solid var(--b);}
+.bill-hero .btl b{color:var(--g2);font-weight:600;}
+.bill-list{background:var(--s);padding:14px 20px;overflow:auto;max-height:180px;}
+.bill-row{display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid rgba(200,131,42,.06);}
+.bill-row:last-child{border-bottom:none;}
+.bill-row .bc{font-size:11px;color:var(--cr);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bill-row .bc.tl{color:var(--g2);font-weight:600;}
+.bill-row .btag{font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--g);background:var(--g2);border-radius:3px;padding:1px 5px;margin-left:6px;}
+.bill-row .ba{font-size:12px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums;}
+.bill-row .bwk{font-size:9px;color:var(--gr);width:74px;text-align:right;font-variant-numeric:tabular-nums;}
+/* 7-day shipment bar */
+.spark{display:flex;align-items:flex-end;gap:6px;height:66px;padding:6px 2px 0;}
+.spark .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:flex-end;height:100%;}
+.spark .sb-fill{width:100%;background:var(--gold);border-radius:2px 2px 0 0;min-height:2px;transition:height .5s ease;}
+.spark .col.today .sb-fill{background:var(--g2);}
+.spark .sb-day{font-size:8px;color:var(--gr);letter-spacing:.04em;}
+.spark .sb-n{font-size:9px;color:var(--cr);font-weight:600;}
 </style>
 </head>
 <body>
@@ -105,6 +128,16 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
     <span class="upd" id="upd">Loading...</span>
     <button class="rbtn" onclick="loadAll()">&#8635; Refresh</button>
   </div>
+</div>
+
+<div class="bill">
+  <div class="bill-hero">
+    <div class="bl">Billed · Latest Week</div>
+    <div class="bv" id="billTotal">-</div>
+    <div class="bsub" id="billMeta">Loading from Infoplus…</div>
+    <div class="btl" id="billTL"></div>
+  </div>
+  <div class="bill-list" id="billList"><div class="sbox">Loading…</div></div>
 </div>
 
 <div class="status-row">
@@ -132,6 +165,10 @@ tbody td{padding:8px 12px;color:var(--cr);vertical-align:middle;}
   <div class="panel">
     <div class="ph"><div class="pt">Shipped Today</div><div class="pm" id="shippedMeta">by client</div></div>
     <div class="pb" id="shippedBar"><div class="sbox">Loading...</div></div>
+  </div>
+  <div class="panel s2">
+    <div class="ph"><div class="pt">Shipments · Last 7 Days</div><div class="pm" id="sparkMeta">daily</div></div>
+    <div class="pb"><div class="spark" id="spark"><div class="sbox">Loading...</div></div></div>
   </div>
   <div class="panel">
     <div class="ph"><div class="pt">Shipping Status</div><div class="pm" id="em">Ehub</div></div>
@@ -178,6 +215,23 @@ function cn(id){ return CL[String(id)] || 'LOB '+id; }
 function fd(d){ if(!d) return '-'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function sb(s){ var c=(s||'').toLowerCase().replace(/ /g,'-'); var cl='bot'; if(c==='on-order') cl='bon'; else if(c==='processed') cl='bpr'; else if(c==='shipped') cl='bsh'; else if(c==='error') cl='berr'; else if(c==='back-order') cl='bbk'; return '<span class="badge '+cl+'">'+s+'</span>'; }
 function tog(){ document.getElementById('ob').classList.toggle('open'); document.getElementById('arr').classList.toggle('open'); }
+var TWO_LEAVES = '22352';
+function money(n){ n = Number(n)||0; return '$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function shortDay(d){ if(!d) return ''; var p=d.split('-'); return p[1]+'/'+p[2]; }
+function buildSpark(series){
+  var el = document.getElementById('spark');
+  if(!series || !series.length){ el.innerHTML='<div class="sbox">No data</div>'; return; }
+  var mx = Math.max.apply(null, series.map(function(s){ return s.count; })).valueOf() || 1;
+  document.getElementById('sparkMeta').textContent = series.reduce(function(s,d){return s+d.count;},0)+' total';
+  el.innerHTML = series.map(function(s,idx){
+    var isToday = idx === series.length-1;
+    var h = Math.max(2, Math.round(s.count/mx*46));
+    return '<div class="col'+(isToday?' today':'')+'">'
+         + '<div class="sb-n">'+s.count+'</div>'
+         + '<div class="sb-fill" style="height:'+h+'px"></div>'
+         + '<div class="sb-day">'+shortDay(s.day)+'</div></div>';
+  }).join('');
+}
 function buildBars(elId, items, colorClass){
   var el = document.getElementById(elId);
   if(!items.length){ el.innerHTML='<div class="sbox">None</div>'; return; }
@@ -225,6 +279,8 @@ function loadInfoplus(){
       document.getElementById('bar').innerHTML = ci.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
       document.getElementById('bm').textContent = ci.length+' clients';
       document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.freight?'$'+Number(o.freight).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
+      if(d.series) buildSpark(d.series);
+      if(d.wFreightAvg){ document.getElementById('sF').textContent = '$'+Number(d.wFreightAvg).toFixed(2); }
     })
     .catch(function(e){ document.getElementById('sT').textContent='Err'; document.getElementById('awaitBar').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
@@ -255,12 +311,39 @@ function loadEhub(){
     })
     .catch(function(e){ document.getElementById('em').textContent='Ehub error'; document.getElementById('dleg').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
+function loadBilling(){
+  fetch('/.netlify/functions/billing')
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(d){
+      var clients = d.clients || [];
+      document.getElementById('billTotal').textContent = money(d.latestTotal);
+      // Split out Two Leaves so Richard sees earned-vs-subsidy at a glance.
+      var tl = clients.filter(function(c){ return String(c.lobId)===TWO_LEAVES; })[0];
+      var tlAmt = tl ? tl.latestWeek : 0;
+      var exTl = (d.latestTotal||0) - tlAmt;
+      var end = clients.length ? (clients.map(function(c){return c.latestEnd;}).sort().pop()) : '';
+      document.getElementById('billMeta').textContent = clients.length+' clients'+(end?' · week ending '+shortDay(end):'');
+      document.getElementById('billTL').innerHTML = 'Of which Two Leaves <b>'+money(tlAmt)+'</b> · Everyone else <b>'+money(exTl)+'</b>';
+      if(!clients.length){ document.getElementById('billList').innerHTML='<div class="sbox">No billed lines in range</div>'; return; }
+      document.getElementById('billList').innerHTML = clients.map(function(c){
+        var isTL = String(c.lobId)===TWO_LEAVES;
+        return '<div class="bill-row">'
+             + '<div class="bc'+(isTL?' tl':'')+'">'+cn(c.lobId)+(isTL?'<span class="btag">subsidy</span>':'')+'</div>'
+             + '<div class="ba">'+money(c.latestWeek)+'</div>'
+             + '<div class="bwk">7d '+money(c.week7)+'</div></div>';
+      }).join('');
+    })
+    .catch(function(e){
+      document.getElementById('billTotal').textContent='Err';
+      document.getElementById('billMeta').textContent=e.message;
+      document.getElementById('billList').innerHTML='<div class="err">'+e.message+'</div>';
+    });
+}
 function loadAll(){
   document.getElementById('upd').textContent = 'Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
   loadInfoplus();
   loadEhub();
+  loadBilling();
 }
 loadAll();
 </script>
-</body>
-</html>
