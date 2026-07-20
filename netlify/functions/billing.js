@@ -1,3 +1,4 @@
+
 const https = require('https');
  
 // Infoplus 3PL billing lives in the Invoice Worksheet Line table, separate from orders.
@@ -30,6 +31,33 @@ function infoplusGet(path) {
   });
 }
  
+// Pull the array out of whatever shape Infoplus returns.
+function unwrap(result) {
+  if (Array.isArray(result)) return result;
+  const arr = result && (result.response || result.records || result.data
+    || result.results || result.invoiceWorksheetLine || result.list);
+  return Array.isArray(arr) ? arr : [];
+}
+ 
+// Page through Infoplus 250 at a time (its max) until a page returns < 250.
+// Per Infoplus (Jen): use the `page` param with `limit`; sort on an id field
+// so live changes don't reshuffle rows mid-pull. Cap pages as a safety valve.
+async function paginate(basePath, sortField) {
+  const LIMIT = 250;
+  const MAX_PAGES = 40; // 10,000 rows ceiling — plenty, prevents runaway loops
+  let all = [];
+  let firstErr = null;
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const path = basePath + '&limit=' + LIMIT + '&page=' + page + '&sort=' + sortField;
+    const res = await infoplusGet(path);
+    if (res && res.errors && !firstErr) firstErr = res.errors;
+    const rows = unwrap(res);
+    all = all.concat(rows);
+    if (rows.length < LIMIT) break; // last page reached
+  }
+  return { rows: all, error: firstErr };
+}
+ 
 // YYYY-MM-DD for a date N days back from now (local server time).
 function dayStr(daysBack) {
   const d = new Date();
@@ -42,21 +70,14 @@ function dayStr(daysBack) {
 exports.handler = async function (event, context) {
   try {
     // Pull the most recent billing worksheet lines. Filter on endDate so we get
-    // whatever was billed in the current cycle, newest first, then bucket in JS.
+    // whatever was billed recently; page through all results; bucket in JS.
     const since = dayStr(35); // wide window so we always catch the latest weekly run
     const filter = encodeURIComponent('endDate gt "' + since + '"');
-    const path = '/infoplus-wms/api/beta/invoiceWorksheetLine/search'
-               + '?filter=' + filter
-               + '&limit=500'
-               + '&sort=!endDate';
+    const basePath = '/infoplus-wms/api/beta/invoiceWorksheetLine/search?filter=' + filter;
  
-    const result = await infoplusGet(path);
-    // Infoplus may return a bare array, or wrap it under one of several keys.
-    // Find the array no matter the shape so we never crash on .forEach.
-    const lines = Array.isArray(result) ? result
-      : (result.response || result.records || result.data || result.results
-         || result.invoiceWorksheetLine || result.list || []);
-    const safeLines = Array.isArray(lines) ? lines : [];
+    // Sort on the record id so live edits don't reshuffle rows between pages.
+    const paged = await paginate(basePath, 'id');
+    const safeLines = paged.rows;
  
     const yesterday = dayStr(1);
     const weekAgo = dayStr(7);
@@ -97,9 +118,7 @@ exports.handler = async function (event, context) {
         totalWeek7,       // sum billed in the rolling 7-day window
         latestTotal,      // sum of each client's most recent billed week
         lineCount: safeLines.length,
-        rawShape: Array.isArray(result) ? 'array' : Object.keys(result || {}).join(','),
-        infoplusError: (result && result.errors) ? result.errors : null,
-        attemptedPath: path
+        infoplusError: paged.error || null
       })
     };
   } catch (err) {
