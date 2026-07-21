@@ -42,11 +42,11 @@ body{
 /* ===== HEADER ===== */
 .hdr{
   background:rgba(9,17,12,.7);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-  border-bottom:1px solid var(--panel-edge);padding:0 30px;height:104px;
+  border-bottom:1px solid var(--panel-edge);padding:0 30px;height:120px;
   display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;
 }
-.logo-chip{background:linear-gradient(145deg,#1a3324,#0d1c13);border:1px solid var(--panel-edge);border-radius:16px;padding:10px 20px;display:flex;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);}
-.logo-img{height:76px;width:auto;display:block;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));}
+.logo-chip{background:transparent;border:none;padding:0;display:flex;align-items:center;}
+.logo-img{height:104px;width:auto;display:block;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5));}
 .htitle{font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--gold2);text-transform:uppercase;text-shadow:0 0 20px var(--gold-glow);}
 .hdiv{width:1px;height:46px;background:linear-gradient(var(--panel-edge),transparent);}
 .hdr-l{display:flex;align-items:center;gap:20px;}
@@ -58,7 +58,7 @@ body{
 .rbtn:hover{background:var(--gold);color:#0b1810;box-shadow:0 0 24px var(--gold-glow);transform:translateY(-1px);}
  
 /* ===== SHELL ===== */
-.shell{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 92px);}
+.shell{min-height:calc(100vh - 92px);}
  
 /* ===== MONEY RAIL ===== */
 .rail{padding:24px 22px;display:flex;flex-direction:column;gap:18px;border-right:1px solid var(--panel-edge-soft);}
@@ -96,7 +96,7 @@ body{
 .stagger>*:nth-child(4){animation-delay:.15s}
  
 /* status strip — glass pills */
-.status-row{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:18px;}
+.status-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
 .stc{background:var(--panel);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--panel-edge-soft);border-radius:14px;padding:14px 10px;text-align:center;transition:transform .2s,box-shadow .2s;animation:fadeUp .5s ease both;}
 .stc:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.4);border-color:var(--panel-edge);}
 .stl{font-size:8px;font-weight:700;letter-spacing:.12em;color:var(--txt-dim);text-transform:uppercase;margin-bottom:7px;}
@@ -108,7 +108,7 @@ body{
 .stc.shipped .stv{color:var(--green-live);text-shadow:0 0 16px rgba(67,196,106,.4);}
  
 /* hero stat cards */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.stats{display:grid;grid-template-columns:repeat(1,1fr);gap:14px;margin-bottom:18px;}
 .sc{background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--panel-edge-soft);border-radius:16px;padding:20px 22px;position:relative;overflow:hidden;transition:transform .25s,box-shadow .25s,border-color .25s;box-shadow:0 8px 24px rgba(0,0,0,.3);}
 .sc:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.5);border-color:var(--panel-edge);}
 .sc::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;opacity:.9;}
@@ -194,11 +194,20 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 @media(max-width:900px){
   .shell{grid-template-columns:1fr;}
   .rail{border-right:none;border-bottom:1px solid var(--panel-edge-soft);}
-  .status-row{grid-template-columns:repeat(4,1fr);}
-  .stats{grid-template-columns:repeat(2,1fr);}
+  .status-row{grid-template-columns:repeat(3,1fr);}
+  .stats{grid-template-columns:repeat(1,1fr);}
   .grid{grid-template-columns:1fr;}
   .s2{grid-column:span 1;}
 }
+ 
+.hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px;}
+.hero-col{display:flex;flex-direction:column;gap:14px;}
+@media(max-width:1100px){.hero-row{grid-template-columns:1fr;}}
+ 
+.ship-count-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--panel-edge-soft);font-size:14px;}
+.ship-count-row:last-child{border-bottom:none;}
+.ship-count-row .scn{color:var(--txt);}
+.ship-count-row .scv{color:#fff;font-weight:700;font-variant-numeric:tabular-nums;}
 </style>
 </head>
 <body>
@@ -217,7 +226,11 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 </div>
  
 <div class="shell">
-  <div class="rail">
+  <div class="body">
+ 
+<div class="hero-row">
+ 
+  <div class="hero-col">
     <div class="bill-hero">
       <div class="bl">Billed · Latest Week</div>
       <div class="bv" id="billTotal">-</div>
@@ -229,54 +242,51 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
       <div class="bill-list" id="billList"><div class="sbox">Loading…</div></div>
     </div>
   </div>
-  <div class="body">
+ 
+  <div class="hero-col">
+    <div class="bill-hero">
+      <div class="bl">Avg Freight · Yesterday</div>
+      <div class="bv" id="sF">-</div>
+      <div class="bsub">Ehub · what we pay to ship</div>
+    </div>
+    <div class="bill-card">
+      <div class="bill-card-h">Shipped Yesterday · by client</div>
+      <div class="bill-list" id="shippedBar"><div class="sbox">Loading…</div></div>
+    </div>
+  </div>
+ 
+  <div class="hero-col">
+    <div class="bill-hero">
+      <div class="bl">Shipments · Last 7 Days</div>
+      <div class="bv" id="shipTotal">-</div>
+      <div class="bsub">total parcels shipped</div>
+    </div>
+    <div class="bill-card">
+      <div class="bill-card-h">Shipment Counts</div>
+      <div class="bill-list" id="shipCounts"><div class="sbox">Loading…</div></div>
+    </div>
+  </div>
+ 
+</div>
  
  
-<div class="status-row">
-  <div class="stc"><div class="stl">Pending</div><div class="stv" id="cPend">-</div></div>
-  <div class="stc error"><div class="stl">Error</div><div class="stv" id="cErr">-</div></div>
-  <div class="stc onorder"><div class="stl">On Order</div><div class="stv" id="cOn">-</div></div>
-  <div class="stc processed"><div class="stl">Processed</div><div class="stv" id="cProc">-</div></div>
-  <div class="stc shipped"><div class="stl">Shipped</div><div class="stv" id="cShip">-</div></div>
-  <div class="stc backorder"><div class="stl">Back Order</div><div class="stv" id="cBack">-</div></div>
-  <div class="stc"><div class="stl">Cancelled</div><div class="stv" id="cCanc">-</div></div>
+ 
+<div style="display:none">
+  <span id="cPend"></span><span id="cErr"></span><span id="cBack"></span><span id="cCanc"></span>
+  <span id="cOn"></span><span id="cProc"></span><span id="cShip"></span>
 </div>
  
 <div class="stats">
-  <div class="sc"><div class="sl">Recent Orders</div><div class="sv" id="sT">-</div><div class="ss">live · updating</div></div>
-  <div class="sc"><div class="sl">On Order</div><div class="sv" id="sO">-</div><div class="ss">Awaiting fulfillment</div></div>
-  <div class="sc"><div class="sl">Shipped Yesterday</div><div class="sv" id="sS">-</div><div class="ss">last completed day</div></div>
-  <div class="sc"><div class="sl">Avg Freight</div><div class="sv" id="sF">-</div><div class="ss">Ehub · yesterday's shipments</div></div>
+  <span id="sT" style="display:none"></span>
+  <span id="sO" style="display:none"></span>
+  <span id="sS" style="display:none"></span>
 </div>
  
 <div class="grid">
-  <div class="panel">
-    <div class="ph"><div class="pt">Awaiting Fulfillment</div><div class="pm" id="awaitMeta">by client</div></div>
-    <div class="pb" id="awaitBar"><div class="sbox">Loading...</div></div>
-  </div>
-  <div class="panel">
-    <div class="ph"><div class="pt">Shipped Yesterday</div><div class="pm" id="shippedMeta">by client</div></div>
-    <div class="pb" id="shippedBar"><div class="sbox">Loading...</div></div>
-  </div>
-  <div class="panel s2">
-    <div class="ph"><div class="pt">Shipments · Last 7 Days</div><div class="pm" id="sparkMeta">daily</div></div>
-    <div class="pb"><div class="spark" id="spark"><div class="sbox">Loading...</div></div></div>
-  </div>
-  <div class="panel">
-    <div class="ph"><div class="pt">Shipping Status</div><div class="pm" id="em">yesterday</div></div>
-    <div class="pb">
-      <div class="sship">
-        <div class="ss2"><div class="sn d" id="sDel">-</div><div class="slb">Delivered</div></div>
-        <div class="ss2"><div class="sn t" id="sTr">-</div><div class="slb">In Transit</div></div>
-        <div class="ss2"><div class="sn o" id="sOfd">-</div><div class="slb">Out for Del.</div></div>
-      </div>
-      <div class="dleg" id="dleg"><div class="sbox">Loading...</div></div>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="ph"><div class="pt">All Orders by Client</div><div class="pm" id="bm">Infoplus</div></div>
-    <div class="pb" id="bar"><div class="sbox">Loading...</div></div>
-  </div>
+  <span id="shippedMeta" style="display:none"></span>
+  <span id="em" style="display:none"></span><span id="sDel" style="display:none"></span><span id="sTr" style="display:none"></span><span id="sOfd" style="display:none"></span><span id="dleg" style="display:none"></span>
+  <span id="awaitBar" style="display:none"></span><span id="awaitMeta" style="display:none"></span><span id="bar" style="display:none"></span><span id="bm" style="display:none"></span>
+  <span id="spark" style="display:none"></span><span id="sparkMeta" style="display:none"></span>
   <div class="panel s2">
     <div class="otog" onclick="tog()">
       <div class="pt">Recent Orders <span class="pm" id="om" style="margin-left:6px;text-transform:none;letter-spacing:0;"></span></div>
@@ -312,6 +322,23 @@ function tog(){ document.getElementById('ob').classList.toggle('open'); document
 var TWO_LEAVES = '22352';
 function money(n){ n = Number(n)||0; return '$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function shortDay(d){ if(!d) return ''; var p=d.split('-'); return p[1]+'/'+p[2]; }
+ 
+function buildShipHero(series){
+  if(!series || !series.length){
+    document.getElementById('shipTotal').textContent = '-';
+    document.getElementById('shipCounts').innerHTML = '<div class="sbox">No data</div>';
+    return;
+  }
+  var total = series.reduce(function(s,d){return s + (d.count||0);}, 0);
+  var yesterday = series[series.length-1] ? series[series.length-1].count : 0;
+  var avg = Math.round(total / series.length);
+  document.getElementById('shipTotal').textContent = total.toLocaleString();
+  document.getElementById('shipCounts').innerHTML =
+    '<div class="ship-count-row"><span class="scn">Yesterday</span><span class="scv">'+yesterday.toLocaleString()+'</span></div>'+
+    '<div class="ship-count-row"><span class="scn">7-day total</span><span class="scv">'+total.toLocaleString()+'</span></div>'+
+    '<div class="ship-count-row"><span class="scn">Avg / day</span><span class="scv">'+avg.toLocaleString()+'</span></div>';
+}
+ 
 function buildSpark(series){
   var el = document.getElementById('spark');
   if(!series || !series.length){ el.innerHTML='<div class="sbox">No data</div>'; return; }
@@ -405,7 +432,7 @@ function loadInfoplus(){
       document.getElementById('bar').innerHTML = ci.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
       document.getElementById('bm').textContent = ci.length+' clients';
       document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.freight?'$'+Number(o.freight).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
-      if(d.series) buildSpark(d.series);
+      if(d.series){ buildSpark(d.series); buildShipHero(d.series); }
       if(d.wFreightAvg){ document.getElementById('sF').textContent = '$'+Number(d.wFreightAvg).toFixed(2); }
     })
     .catch(function(e){ document.getElementById('sT').textContent='Err'; document.getElementById('awaitBar').innerHTML='<div class="err">'+e.message+'</div>'; });
