@@ -243,10 +243,10 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 </div>
  
 <div class="stats">
-  <div class="sc"><div class="sl">Recent Orders</div><div class="sv" id="sT">-</div><div class="ss">latest 100 loaded</div></div>
+  <div class="sc"><div class="sl">Recent Orders</div><div class="sv" id="sT">-</div><div class="ss">most recent 100 · live snapshot</div></div>
   <div class="sc"><div class="sl">On Order</div><div class="sv" id="sO">-</div><div class="ss">Awaiting fulfillment</div></div>
-  <div class="sc"><div class="sl">Shipped Today</div><div class="sv" id="sS">-</div><div class="ss">Out the door today</div></div>
-  <div class="sc"><div class="sl">Avg Freight</div><div class="sv" id="sF">-</div><div class="ss">From Ehub · yesterday's shipments</div></div>
+  <div class="sc"><div class="sl">Shipped Yesterday</div><div class="sv" id="sS">-</div><div class="ss">last completed day</div></div>
+  <div class="sc"><div class="sl">Avg Freight</div><div class="sv" id="sF">-</div><div class="ss">Ehub · yesterday's shipments</div></div>
 </div>
  
 <div class="grid">
@@ -255,7 +255,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
     <div class="pb" id="awaitBar"><div class="sbox">Loading...</div></div>
   </div>
   <div class="panel">
-    <div class="ph"><div class="pt">Shipped Today</div><div class="pm" id="shippedMeta">by client</div></div>
+    <div class="ph"><div class="pt">Shipped Yesterday</div><div class="pm" id="shippedMeta">by client</div></div>
     <div class="pb" id="shippedBar"><div class="sbox">Loading...</div></div>
   </div>
   <div class="panel s2">
@@ -263,7 +263,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
     <div class="pb"><div class="spark" id="spark"><div class="sbox">Loading...</div></div></div>
   </div>
   <div class="panel">
-    <div class="ph"><div class="pt">Shipping Status</div><div class="pm" id="em">Ehub</div></div>
+    <div class="ph"><div class="pt">Shipping Status</div><div class="pm" id="em">yesterday</div></div>
     <div class="pb">
       <div class="sship">
         <div class="ss2"><div class="sn d" id="sDel">-</div><div class="slb">Delivered</div></div>
@@ -422,7 +422,7 @@ function loadEhub(){
       document.getElementById('sDel').textContent = del;
       document.getElementById('sTr').textContent = tr;
       document.getElementById('sOfd').textContent = ofd;
-      document.getElementById('em').textContent = sh.length+' shipments';
+      document.getElementById('em').textContent = sh.length+' shipped yesterday';
       var rated = sh.filter(function(s){ return s.shipping_service && s.shipping_service.rate && parseFloat(s.shipping_service.rate) > 0; });
       if(rated.length){
         var avg = rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length;
