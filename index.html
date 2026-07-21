@@ -201,7 +201,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
   .hdr-r{display:none;}
 }
  
-.hero-row{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px;}
+.hero-row{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:20px;}
 .hero-col{display:flex;flex-direction:column;gap:14px;}
 @media(max-width:1100px){.hero-row{grid-template-columns:1fr;}}
  
@@ -248,7 +248,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
     <div class="bill-hero">
       <div class="bl">Avg Freight · Yesterday</div>
       <div class="bv" id="sF">-</div>
-      <div class="bsub">Ehub · what we pay to ship</div>
+      <div class="bsub"><span id="shipTotal">-</span> shipped yesterday · Ehub</div>
     </div>
     <div class="bill-card">
       <div class="bill-card-h">Shipped Yesterday · by client</div>
@@ -256,18 +256,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
     </div>
   </div>
  
-  <div class="hero-col">
-    <div class="bill-hero">
-      <div class="bl">Shipments · Last 7 Days</div>
-      <div class="bv" id="shipTotal">-</div>
-      <div class="bsub">total parcels shipped</div>
-    </div>
-    <div class="bill-card">
-      <div class="bill-card-h">Shipment Counts</div>
-      <div class="bill-list" id="shipCounts"><div class="sbox">Loading…</div></div>
-    </div>
-  </div>
- 
+  <span id="shipCounts" style="display:none"></span>
 </div>
  
  
@@ -324,21 +313,7 @@ var TWO_LEAVES = '22352';
 function money(n){ n = Number(n)||0; return '$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
 function shortDay(d){ if(!d) return ''; var p=d.split('-'); return p[1]+'/'+p[2]; }
  
-function buildShipHero(series){
-  if(!series || !series.length){
-    document.getElementById('shipTotal').textContent = '-';
-    document.getElementById('shipCounts').innerHTML = '<div class="sbox">No data</div>';
-    return;
-  }
-  var total = series.reduce(function(s,d){return s + (d.count||0);}, 0);
-  var yesterday = series[series.length-1] ? series[series.length-1].count : 0;
-  var avg = Math.round(total / series.length);
-  document.getElementById('shipTotal').textContent = total.toLocaleString();
-  document.getElementById('shipCounts').innerHTML =
-    '<div class="ship-count-row"><span class="scn">Yesterday</span><span class="scv">'+yesterday.toLocaleString()+'</span></div>'+
-    '<div class="ship-count-row"><span class="scn">7-day total</span><span class="scv">'+total.toLocaleString()+'</span></div>'+
-    '<div class="ship-count-row"><span class="scn">Avg / day</span><span class="scv">'+avg.toLocaleString()+'</span></div>';
-}
+function buildShipHero(series){ /* deprecated: shipTotal is set from Ehub in loadEhub() for accuracy */ }
  
 function buildSpark(series){
   var el = document.getElementById('spark');
@@ -430,7 +405,7 @@ function loadInfoplus(){
       document.getElementById('bar').innerHTML = ci.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
       document.getElementById('bm').textContent = ci.length+' clients';
       document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.freight?'$'+Number(o.freight).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
-      if(d.series){ buildSpark(d.series); buildShipHero(d.series); }
+      if(d.series){ buildSpark(d.series); }  // buildShipHero removed: shipTotal now set from Ehub (accurate)
       if(d.wFreightAvg){ document.getElementById('sF').textContent = '$'+Number(d.wFreightAvg).toFixed(2); }
     })
     .catch(function(e){ document.getElementById('sT').textContent='Err'; document.getElementById('awaitBar').innerHTML='<div class="err">'+e.message+'</div>'; });
@@ -448,6 +423,7 @@ function loadEhub(){
       document.getElementById('sTr').textContent = tr;
       document.getElementById('sOfd').textContent = ofd;
       document.getElementById('em').textContent = sh.length+' shipped yesterday';
+      var stEl = document.getElementById('shipTotal'); if(stEl) stEl.textContent = sh.length.toLocaleString();
       var rated = sh.filter(function(s){ return s.shipping_service && s.shipping_service.rate && parseFloat(s.shipping_service.rate) > 0; });
       if(rated.length){
         var avg = rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length;
