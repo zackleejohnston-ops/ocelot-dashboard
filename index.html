@@ -421,10 +421,7 @@ function loadInfoplus(){
       buildBars('awaitBar', ai, 'pending');
       var sc2 = {};
       var shipSrc = shippedToday.length ? shippedToday : shippedAll;
-      shipSrc.forEach(function(o){ var n=cn(o.lobId); sc2[n]=(sc2[n]||0)+1; });
-      var si = Object.entries(sc2).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
-      document.getElementById('shippedMeta').textContent = si.length ? si.length+' clients' : 'none yet';
-      buildBars('shippedBar', si, 'shipped');
+      // shippedBar now populated from Ehub (complete source) in loadEhub(), not from the capped Infoplus batch.
       var cc = {};
       orders.forEach(function(o){ var n=cn(o.lobId); cc[n]=(cc[n]||0)+1; });
       var ci = Object.entries(cc).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
@@ -461,6 +458,28 @@ function loadEhub(){
       if(ofd) items.push({l:'Out for Del.',v:ofd,c:'#E8A84A'});
       if(oth>0) items.push({l:'Other',v:oth,c:'#9A9590'});
       document.getElementById('dleg').innerHTML = items.length ? items.map(function(i){ return '<div class="li"><div class="ld" style="background:'+i.c+'"></div>'+i.l+'<span class="lv">'+i.v+'</span></div>'; }).join('') : '<div class="sbox">No data</div>';
+ 
+      // Group Ehub shipments by client (complete + accurate source)
+      var byClient = {};
+      sh.forEach(function(s){
+        var lob = null;
+        // account_reference looks like "760-22344" -> take part after last dash
+        if(s.account_reference && s.account_reference.indexOf('-') > -1){
+          lob = s.account_reference.split('-').pop();
+        } else if(s.label_text1){
+          // label_text1 looks like "22344 161043.000" -> first token
+          lob = String(s.label_text1).trim().split(/\s+/)[0];
+        }
+        if(lob){
+          var name = cn(lob);
+          byClient[name] = (byClient[name]||0) + 1;
+        }
+      });
+      var shipItems = Object.entries(byClient).map(function(e){ return {l:e[0], c:e[1]}; })
+                        .sort(function(a,b){ return b.c - a.c; });
+      var smeta = document.getElementById('shippedMeta');
+      if(smeta) smeta.textContent = shipItems.length ? shipItems.length+' clients' : 'none yet';
+      buildBars('shippedBar', shipItems, 'shipped');
     })
     .catch(function(e){ document.getElementById('em').textContent='Ehub error'; document.getElementById('dleg').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
