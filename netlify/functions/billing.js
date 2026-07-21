@@ -6,7 +6,7 @@ const https = require('https');
 //   client   : lobId  (same LOB codes as the orders table)
 //   date     : startDate / endDate
 //   name     : e.g. "Two Leaves Billing 7/19/2026" (real run) vs "Daily 7/21/2026" (noise)
-const API_KEY = process.env.IP_KEY;
+const API_KEY = process.env.IP_KEY || '44820105A0C483295BC3DD05E404E55E72EA3A6FAA470C02A476DDCB3C2A2AE5';
  
 function infoplusGet(path) {
   return new Promise((resolve, reject) => {
@@ -134,3 +134,4 @@ exports.handler = async function (event, context) {
     };
   }
 };
+ 
