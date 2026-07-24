@@ -12,11 +12,42 @@ Deployed on Netlify (ocelot-logistics.com). Audience is Richard, the owner.
 - Deploy flow: commit/push via GitHub Desktop → Netlify auto-deploys → hard-refresh (Ctrl+Shift+R)
 
 ## Brand
-- Deep Forest Green `#0F2219`
-- Ocelot Gold `#C8832A`
-- Warm Cream `#F4EFE6`
-- Font: Inter
-- Dark theme is intentional for this internal tool.
+Canonical source: `Ocelot_Brand_Sheet_v2.pdf` (kept at `C:\Users\EC2\Desktop\ocelot\brand\`).
+The full system is codified below so on-brand is the default without re-opening the PDF.
+
+**Colors (the whole palette — no others):**
+- Deep Forest Green `#0F2219` — the foundation. Grounded, steady, "we're solid." Backgrounds, hero panels.
+- Ocelot Gold `#C8832A` — the signal, from the ocelot's coat / its watching eyes. Accents, labels,
+  the second tagline line, key numbers. Use it to point, not to fill.
+- Warm Cream `#F4EFE6` — the breathing room. Keeps the brand human, never cold. Light surfaces / text.
+
+**Logo / mark:** an ocelot head (the watcher). Wordmark is `OCELOT` (bold, forest green on light /
+cream on dark) with `LOGISTICS` beneath in letter-spaced gold, often flanked by short gold rules.
+
+**Typography:** Inter throughout. Micro-labels are UPPERCASE, letter-spaced, small, gold
+(e.g. `THE COLOR SYSTEM`, `WHO WE ARE`). Headings are heavy (700–900). This matches index.html already.
+
+**Tagline (two-line lockup):**
+> Big enough to ship it.  ← line 1, cream/white (or forest on light)
+> Small enough to answer. ← line 2, ALWAYS gold
+
+**Voice / message system** — capable but human, never a faceless machine; boutique, alert, on top of it:
+- WHO WE ARE — "Big enough to ship it. Small enough to answer." (the lead line)
+- WHAT WE DELIVER — "Fulfillment you don't have to check on." (the reliability promise)
+- WHAT WE ARE — "Boutique fulfillment. Switched on." (the category tag)
+
+**The brand idea:** the ocelot is *the watcher* — a small, switched-on predator that sees what others
+miss, calm until it moves. Small enough to be responsive, sharp enough to never drop the ball. The big
+guys can ship it too — but they can't answer the phone. Every design choice should feel like that:
+alert, precise, trustworthy, unhurried.
+
+**Recurring layout motifs from the sheet:** gold uppercase micro-label above each block; forest-green
+hero panels carrying cream/white + gold text; cream cards with a gold top-accent. index.html already
+uses these — stay inside them.
+
+**Dark vs. light:** the brand sheet is cream-forward (light) because that's the public-facing direction.
+The **dashboard stays dark** — it's an internal tool and the dark theme is intentional. Don't lighten the
+dashboard to "match the sheet." (The eventual public site is where cream-forward lives.)
 
 ## Data sources — important
 **Ehub is the accurate, complete source.** Infoplus order pulls are capped and undercount.
