@@ -63,9 +63,17 @@ alert, precise, trustworthy, unhurried.
 hero panels carrying cream/white + gold text; cream cards with a gold top-accent. index.html already
 uses these — stay inside them.
 
-**Dark vs. light:** the brand sheet is cream-forward (light) because that's the public-facing direction.
-The **dashboard stays dark** — it's an internal tool and the dark theme is intentional. Don't lighten the
-dashboard to "match the sheet." (The eventual public site is where cream-forward lives.)
+**Light/cream-forward (changed 2026-08-11):** the dashboard is now **cream-forward**, matching the brand
+sheet — it was previously dark. Current treatment:
+- **Page background:** cream (`--cream`), faint warm top glow. `body` background was the dark canvas.
+- **Header:** cream bar. Logo is the **full-body lucky-cat** (`ocelot-cat.png`) + gold divider + an HTML
+  wordmark — `OCELOT` in forest green, `LOGISTICS` in gold with two auto-balancing flanking dashes
+  (`.wm-line{flex:1}` so the row locks to OCELOT's width). Header text recolored dark for cream contrast.
+- **Cards/heroes:** kept **dark** (forest green) and made solid (`--panel` bumped to .94 opacity) so they
+  **pop off the cream** as floating panels. Their internals (light/gold text) are unchanged.
+- The old "keep the dashboard dark" rule is retired. If reverting/among themes, note both the page bg and
+  `--panel` opacity. Logo assets: `ocelot-cat.png` (header), `ocelot-favicon.png` (browser tab),
+  `ocelot-logo.png` (og:image — still the old combined lockup).
 
 ## Data sources — important
 **Ehub is the accurate, complete source.** Infoplus order pulls are capped and undercount.
