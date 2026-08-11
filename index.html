@@ -52,11 +52,14 @@ body{
   border-bottom:1px solid rgba(200,131,42,.45);padding:0 30px;height:120px;
   display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;
 }
-/* ===== Header logo: head icon + recolored HTML wordmark (reads on cream) ===== */
-.logo-chip{background:transparent;border:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:3px;}
-.logo-head{height:58px;width:auto;display:block;}
-.wm-ocelot{font-weight:900;font-size:26px;letter-spacing:.08em;color:#111111;line-height:1;}
-.wm-logistics{display:flex;align-items:center;gap:8px;font-weight:700;font-size:11px;letter-spacing:.34em;color:var(--gold);text-transform:uppercase;line-height:1;}
+/* ===== Header logo: full-body lucky-cat + divider + recolored wordmark (cream bg) ===== */
+.logo-chip{background:transparent;border:none;padding:0;display:flex;flex-direction:row;align-items:center;gap:16px;}
+.logo-cat{height:92px;width:auto;display:block;}
+.logo-div{width:2px;height:52px;background:var(--gold);border-radius:1px;display:inline-block;}
+.logo-wm{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.wm-ocelot{font-weight:900;font-size:34px;letter-spacing:.06em;color:var(--forest);line-height:1;}
+.wm-logistics{display:flex;align-items:center;gap:10px;font-weight:700;font-size:13px;letter-spacing:.36em;color:var(--gold);text-transform:uppercase;line-height:1;}
+.wm-txt{margin-right:-.36em;}
 .wm-line{width:22px;height:2px;background:var(--gold);display:inline-block;border-radius:1px;}
 .htitle{font-size:12px;font-weight:700;letter-spacing:.22em;color:var(--forest);text-transform:uppercase;}
 .hdiv{width:1px;height:46px;background:rgba(15,34,25,.2);}
@@ -226,11 +229,13 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 <div class="hdr">
   <div class="hdr-l">
     <div class="logo-chip">
-      <img class="logo-head" src="ocelot-favicon.png" alt="Ocelot Logistics"/>
-      <div class="wm-ocelot">OCELOT</div>
-      <div class="wm-logistics"><span class="wm-line"></span>LOGISTICS<span class="wm-line"></span></div>
+      <img class="logo-cat" src="ocelot-cat.png" alt="Ocelot Logistics"/>
+      <span class="logo-div"></span>
+      <div class="logo-wm">
+        <div class="wm-ocelot">OCELOT</div>
+        <div class="wm-logistics"><span class="wm-line"></span><span class="wm-txt">LOGISTICS</span><span class="wm-line"></span></div>
+      </div>
     </div>
-    <div class="hdiv"></div>
     <div class="htitle">Operations Dashboard</div>
   </div>
   <div class="hdr-r">
