@@ -1,6 +1,16 @@
 const https = require('https');
 const { getStore } = require('@netlify/blobs');
 
+// This (older) Netlify site doesn't auto-inject the Blobs context, so configure the
+// store explicitly from env vars set once in the Netlify UI. Falls back to auto-config
+// (which works on newer sites) if the env vars aren't present.
+function makeStore() {
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
+  const token  = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
+  if (siteID && token) return getStore({ name: 'ocelot-stats', siteID, token });
+  return getStore('ocelot-stats');
+}
+
 // BACKGROUND function (15-min limit) — this is where the heavy Ehub pagination lives,
 // off the request path. It fully tallies each recent SHIPPING DAY (weekday) from Ehub
 // and caches an exact { count, avgFreight, byClient } per day in Netlify Blobs. The fast
@@ -124,7 +134,7 @@ async function computeDay(dateStr) {
 }
 
 exports.handler = async function (event, context) {
-  const store = getStore('ocelot-stats');
+  const store = makeStore();
   const qp = (event && event.queryStringParameters) || {};
   const force = qp.force === '1';
   const n = Math.max(1, Math.min(20, parseInt(qp.days, 10) || 7));

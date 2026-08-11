@@ -1,5 +1,13 @@
 const { getStore } = require('@netlify/blobs');
 
+// See rollup-background.js — this site needs explicit Blobs config from env vars.
+function makeStore() {
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
+  const token  = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
+  if (siteID && token) return getStore({ name: 'ocelot-stats', siteID, token });
+  return getStore('ocelot-stats');
+}
+
 // Fast reader (<1s) — serves the pre-tallied numbers the background rollup cached in Blobs.
 // The dashboard calls THIS, not Ehub directly, for the shipped hero + weekly total.
 //   lastDay : the most recent cached shipping day  { date, count, avgFreight, byClient }
@@ -24,15 +32,26 @@ function lastShippingDays(n) {
 }
 
 exports.handler = async function (event, context) {
-  const store = getStore('ocelot-stats');
+  const hasCreds = !!((process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID) &&
+                      (process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN));
 
   // Storage self-test (write + read a marker), so a deploy can be verified independently of data.
-  let blobsOk = false, blobsError = null;
+  let blobsOk = false, blobsError = null, store = null;
   try {
+    store = makeStore();
     await store.setJSON('selftest', { t: 'ok' });
     const back = await store.get('selftest', { type: 'json' });
     blobsOk = !!(back && back.t === 'ok');
   } catch (e) { blobsError = String(e && e.message || e); }
+
+  // No storage yet → return early with a clear signal for setup verification.
+  if (!blobsOk) {
+    return {
+      statusCode: 200,
+      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blobsOk: false, hasCreds: hasCreds, blobsError: blobsError, lastDay: null, week: null })
+    };
+  }
 
   // Pull the last 7 shipping-day slots; keep whichever are cached.
   const slots = lastShippingDays(7);
@@ -72,6 +91,7 @@ exports.handler = async function (event, context) {
     headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       blobsOk: blobsOk,
+      hasCreds: hasCreds,
       blobsError: blobsError,
       cachedDays: days.map(r => r.date),
       lastDay: lastDay,
