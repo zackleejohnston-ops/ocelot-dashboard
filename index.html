@@ -482,7 +482,7 @@ function loadStats(){
       if(!wk || !wk.count){ loadEhubLive(); return; }
       var lbl=document.getElementById('shipLabel'); if(lbl) lbl.textContent='Shipped · This Week';
       var cardH=document.getElementById('shipCardH'); if(cardH) cardH.textContent='Shipped This Week · by client';
-      countUp(document.getElementById('sF'), wk.count, '', false);
+      document.getElementById('sF').textContent = Number(wk.count).toLocaleString();
       var stEl=document.getElementById('shipTotal'); if(stEl) stEl.textContent = '$'+Number(wk.avgFreight).toFixed(2);
       var sdEl=document.getElementById('shipDay'); if(sdEl) sdEl.textContent = wk.daysCovered+' shipping days'+(wk.complete?'':' (partial)');
       var items = Object.entries(wk.byClient||{}).map(function(e){ return {l:cn(e[0]), c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
