@@ -3,9 +3,11 @@
 ## What this is
 A single-page internal ops dashboard for Ocelot Logistics, a boutique 3PL in Perrysburg, Ohio.
 Deployed on Netlify. Audience is Richard, the owner.
-NOTE: the apex `ocelot-logistics.com` now serves a **Wix** marketing site, not this dashboard — the
-board lives on its `*.netlify.app` URL. (Hitting `ocelot-logistics.com/.netlify/functions/*` returns a
-Wix 400 page.) Update this line if/when the dashboard gets its own domain.
+**Live URL:** https://super-dodol-d17ae4.netlify.app/ (functions at `/.netlify/functions/{orders,ehub,billing}`).
+Fetch these directly to verify changes against real data before/after a deploy.
+NOTE: the apex `ocelot-logistics.com` now serves a **Wix** marketing site, not this dashboard.
+(Hitting `ocelot-logistics.com/.netlify/functions/*` returns a Wix 400 page.) Update if the dashboard
+gets its own domain.
 
 ## Structure
 - `index.html` — the entire front end, one file (~100KB, includes base64 logo)
@@ -73,17 +75,28 @@ then takes the newest end date. Real runs are named like "Joymode Billing 7/19/2
 ## Current layout
 Two heroes side by side:
 1. **Billed · Latest Week** → "By Client" breakdown underneath
-2. **Avg Freight · Last 7 Days** (shipped count in the subtitle line) → "Shipped · Last 7 Days · by client"
-   underneath. Both come from Ehub (the accurate source) over the last 7 completed days (through
-   yesterday; "today" is incomplete). Was "Yesterday" — changed because Monday showed zero after the
-   shipment-free weekend. `ehub.js` paginates the week and returns a `truncated` flag; the count shows
-   a trailing `+` if the full week couldn't be fetched in budget.
+2. **Avg Freight · Last Shipping Day** (shipped count + the date in the subtitle) → "Shipped · Last
+   Shipping Day · by client" underneath. From Ehub (accurate source). "Last shipping day" = yesterday,
+   stepping back over Sat/Sun — so **Monday shows Friday** instead of a zero board (nothing ships on
+   weekends). This is the real fix for "Monday looks dead" — that symptom was always this hero, not the
+   orders table. `ehub.js` returns `day` + a `truncated` flag (count shows a trailing `+` if a busy day
+   spilled past the fetch budget).
 
-Below: the collapsible Recent Orders table — now the **last 7 days** by `orderDate` (was "100 most
-   recent"). `orders.js` falls back to the old 100-most-recent pull if the date filter returns
-   empty/errors, and reports which via `ordersWindow` ('7d' | 'recent'); the live pill shows "last 7
-   days" or "recent" accordingly, so the label never overpromises. Table scrolls internally (max-height).
-   That's it.
+Below: the collapsible Recent Orders table — the **100 most recent** orders by `orderDate` (live view).
+   Scrolls internally (max-height). `orders.js` reports `ordersWindow` ('recent'); the pill shows
+   "recent". That's it.
+
+## Data volume reality (measured 2026-08-11, learned the hard way)
+Verified against the live `*.netlify.app` endpoints:
+- **~250+ orders created per day** (Infoplus). A single day fills a 250-row page, so a "last 7 days"
+  order pull is ~1500+ rows / multiple MB — **cannot be fetched in Netlify's ~10s budget.**
+- **~200–350 shipments per day** (Ehub), and the Ehub API is **slow (~5s per 200-row page)** and
+  returns **oldest-first**. In a 7s budget you get only ~400 rows = the *oldest ~2 days*, mislabeled.
+- **Consequence:** a true rolling 7-day shipped total can't be computed live and honestly. Both
+  time-windowed views were therefore scoped to what IS accurate: last-shipping-**day** for shipments,
+  most-recent for orders. If a real **weekly shipped total** is ever wanted, it needs a different
+  mechanism (a scheduled precompute/cache, or an Ehub total-count field if one exists — `ehub.js`
+  currently returns `_env`, a diagnostic dump of Ehub's response envelope, to check for that).
 
 Earlier versions had status tiles, a 7-day chart, a shipping-status donut, and several client panels —
 all deliberately removed. Don't add them back without being asked.

@@ -1,12 +1,12 @@
 const https = require('https');
 
-// Ehub is the accurate, complete shipment source, so a 7-day total from here is one
-// we can stand behind (unlike the capped Infoplus order pulls).
-// Window: the last 7 COMPLETED days, through yesterday. "Today" is excluded because
-// it's incomplete (per Trevis). On a Monday this shows the whole prior week instead
-// of a blank board, since nothing ships over the weekend.
-// We PAGINATE so a full week never gets silently truncated at one page, and dedupe by
-// shipment id so that if Ehub ever ignores the page param we don't double-count.
+// Ehub is the accurate, complete shipment source.
+// Window: the LAST SHIPPING DAY — i.e. yesterday, but stepping back over Sat/Sun so a
+// Monday shows Friday instead of a blank/zero board (nothing ships on weekends).
+// We pull a single day because at this volume (~200-350 shipments/day, and Ehub ~5s per
+// 200-row page) a full week can't be fetched inside Netlify's time budget — a "7-day
+// total" here would silently undercount, which we won't display. One day fits and is a
+// number we can stand behind. Still paginate + dedupe in case a busy day exceeds one page.
 
 exports.handler = async function (event, context) {
   // TODO: rotate this key in Ehub and move it to a Netlify env var (EH_KEY), then delete the fallback.
@@ -18,14 +18,14 @@ exports.handler = async function (event, context) {
            String(d.getDate()).padStart(2, '0');
   }
 
-  // to = yesterday (last completed day); from = 7 days back → 7 full days ending yesterday.
-  var now = new Date();
-  var to = new Date(now);   to.setDate(to.getDate() - 1);
-  var from = new Date(now); from.setDate(from.getDate() - 7);
+  // Last shipping day = yesterday, stepping back over the weekend.
+  var day = new Date();
+  day.setDate(day.getDate() - 1);
+  while (day.getDay() === 0 || day.getDay() === 6) { day.setDate(day.getDate() - 1); } // 0=Sun, 6=Sat
 
   // Ehub's documented date format: "YYYY-MM-DD hh:mm:ss p" (12-hour clock + AM/PM)
-  var fromTime = ymd(from) + ' 12:00:00 AM';
-  var toTime   = ymd(to)   + ' 11:59:59 PM';
+  var fromTime = ymd(day) + ' 12:00:00 AM';
+  var toTime   = ymd(day) + ' 11:59:59 PM';
 
   function ehubGetPage(page) {
     return new Promise((resolve) => {
@@ -52,15 +52,12 @@ exports.handler = async function (event, context) {
     });
   }
 
-  // Ehub may return the array bare, or wrapped under shipments/data.
   function rowsOf(body) {
     if (Array.isArray(body)) return body;
     if (body && Array.isArray(body.shipments)) return body.shipments;
     if (body && Array.isArray(body.data)) return body.data;
     return [];
   }
-
-  // Stable key so a repeated page (page param ignored) can't inflate the count.
   function keyOf(s) {
     if (s.id != null) return 'id:' + s.id;
     if (s.shipment_id != null) return 'sid:' + s.shipment_id;
@@ -74,18 +71,22 @@ exports.handler = async function (event, context) {
   let all = [];
   let truncated = false;
   let error = null;
+  let env = null; // DIAGNOSTIC: first page's non-array envelope (looking for a total-count field)
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     if (Date.now() - start > BUDGET_MS) { truncated = true; break; }
     const body = await ehubGetPage(page);
     if (body === null && page === 1) error = 'ehub request failed';
+    if (page === 1 && body && !Array.isArray(body)) {
+      env = {};
+      Object.keys(body).forEach(k => { if (!Array.isArray(body[k])) env[k] = body[k]; });
+    }
     const pageRows = rowsOf(body);
     let added = 0;
     for (let i = 0; i < pageRows.length; i++) {
       const k = keyOf(pageRows[i]);
       if (!seen[k]) { seen[k] = 1; all.push(pageRows[i]); added++; }
     }
-    // Last page (short) or nothing new (cursor-style / page ignored) → stop.
     if (pageRows.length < PER_PAGE) break;
     if (added === 0) break;
     if (page === MAX_PAGES) truncated = true;
@@ -97,11 +98,10 @@ exports.handler = async function (event, context) {
     body: JSON.stringify({
       shipments: all,
       count: all.length,
-      windowDays: 7,
-      from: ymd(from),
-      to: ymd(to),
+      day: ymd(day),
       truncated: truncated,
-      error: error
+      error: error,
+      _env: env
     })
   };
 };

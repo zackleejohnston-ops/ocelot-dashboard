@@ -80,24 +80,16 @@ exports.handler = async function (event, context) {
     const weekAgo = dayStr(7);
  
     // ---- 1) Status counts + recent-orders table ----
-    // Recent Orders now shows the LAST 7 DAYS (by orderDate) so Monday isn't blank
-    // after a shipment-free weekend. Safety net: if the date filter returns nothing
-    // or Infoplus rejects it, fall back to the previous "100 most recent" pull so the
-    // table can never regress to empty. `ordersWindow` tells the UI which one it got.
-    const orderFilter = encodeURIComponent('orderDate gt "' + weekAgo + '"');
-    let ordersRes = await infoplusGet(
-      '/infoplus-wms/api/beta/order/search?filter=' + orderFilter + '&limit=250&sort=!orderDate'
+    // Recent Orders = the 100 most recent by orderDate. At ~250 orders/day this is
+    // never blank, so it never had the "Monday looks dead" problem (that was the
+    // shipped hero). A true 7-day pull here would be 1500+ rows / multiple MB and
+    // can't be fetched inside Netlify's time budget, so we keep it as a live view.
+    const ordersRes = await infoplusGet(
+      '/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate'
     );
-    let orders = unwrap(ordersRes);
-    let ordersWindow = '7d';
-    if (!orders.length || (ordersRes && ordersRes.errors)) {
-      ordersWindow = 'recent';
-      ordersRes = await infoplusGet(
-        '/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate'
-      );
-      orders = unwrap(ordersRes);
-    }
-    const ordersTruncated = ordersWindow === '7d' && orders.length >= 250;
+    const orders = unwrap(ordersRes);
+    const ordersWindow = 'recent';
+    const ordersTruncated = false;
     const counts = { Pending: 0, Error: 0, 'On Order': 0, Processed: 0, Shipped: 0, 'Back Order': 0, Cancelled: 0 };
     orders.forEach(o => {
       const k = NORM[(o.status || '').toLowerCase().replace(/[^a-z]/g, '')];

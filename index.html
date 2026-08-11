@@ -246,12 +246,12 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
  
   <div class="hero-col">
     <div class="bill-hero">
-      <div class="bl">Avg Freight · Last 7 Days</div>
+      <div class="bl">Avg Freight · Last Shipping Day</div>
       <div class="bv" id="sF">-</div>
-      <div class="bsub"><span id="shipTotal">-</span> shipped · last 7 days · Ehub</div>
+      <div class="bsub"><span id="shipTotal">-</span> shipped · <span id="shipDay">–</span> · Ehub</div>
     </div>
     <div class="bill-card">
-      <div class="bill-card-h">Shipped · Last 7 Days · by client</div>
+      <div class="bill-card-h">Shipped · Last Shipping Day · by client</div>
       <div class="bill-list" id="shippedBar"><div class="sbox">Loading…</div></div>
     </div>
   </div>
@@ -307,6 +307,7 @@ var CL = {
 };
 function cn(id){ return CL[String(id)] || 'LOB '+id; }
 function fd(d){ if(!d) return '-'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function fdow(s){ if(!s) return '–'; var dt=new Date(s+'T12:00:00'); return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 function sb(s){ var c=(s||'').toLowerCase().replace(/ /g,'-'); var cl='bot'; if(c==='on-order') cl='bon'; else if(c==='processed') cl='bpr'; else if(c==='shipped') cl='bsh'; else if(c==='error') cl='berr'; else if(c==='back-order') cl='bbk'; return '<span class="badge '+cl+'">'+s+'</span>'; }
 function tog(){ document.getElementById('ob').classList.toggle('open'); document.getElementById('arr').classList.toggle('open'); }
 var TWO_LEAVES = '22352';
@@ -382,9 +383,9 @@ function loadInfoplus(){
       document.getElementById('cCanc').textContent = counts['Cancelled'] || 0;
       if(!Array.isArray(orders) || !orders.length){
         document.getElementById('sT').textContent='0';
-        document.getElementById('om').textContent = (d.ordersWindow!=='recent') ? 'last 7 days' : 'recent';
-        document.getElementById('otb').innerHTML = '<tr><td colspan="6" class="sbox">No orders in the last 7 days</td></tr>';
-        document.getElementById('fc').textContent = '0 orders · last 7 days';
+        document.getElementById('om').textContent = (d.ordersWindow==='7d') ? 'last 7 days' : 'recent';
+        document.getElementById('otb').innerHTML = '<tr><td colspan="6" class="sbox">No recent orders</td></tr>';
+        document.getElementById('fc').textContent = '0 recent orders';
         return;
       }
       var today = new Date().toISOString().split('T')[0];
@@ -394,7 +395,7 @@ function loadInfoplus(){
       document.getElementById('sT').textContent = orders.length;
       document.getElementById('sO').textContent = awaiting.length;
       document.getElementById('sS').textContent = shippedToday.length || shippedAll.length;
-      var win7 = (d.ordersWindow !== 'recent');
+      var win7 = (d.ordersWindow === '7d');
       document.getElementById('om').textContent = win7 ? 'last 7 days' : 'recent';
       document.getElementById('fc').textContent = orders.length+(d.ordersTruncated?'+':'')+(win7?' orders · last 7 days':' recent orders');
       var ac = {};
@@ -430,8 +431,9 @@ function loadEhub(){
       document.getElementById('sTr').textContent = tr;
       document.getElementById('sOfd').textContent = ofd;
       var truncated = !!(d && d.truncated);
-      document.getElementById('em').textContent = sh.length+' shipped · last 7 days';
+      document.getElementById('em').textContent = sh.length+' shipped · '+fdow(d && d.day);
       var stEl = document.getElementById('shipTotal'); if(stEl) stEl.textContent = sh.length.toLocaleString()+(truncated?'+':'');
+      var sdEl = document.getElementById('shipDay'); if(sdEl) sdEl.textContent = fdow(d && d.day);
       var rated = sh.filter(function(s){ return s.shipping_service && s.shipping_service.rate && parseFloat(s.shipping_service.rate) > 0; });
       if(rated.length){
         var avg = rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length;
