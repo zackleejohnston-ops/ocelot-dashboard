@@ -5,7 +5,9 @@ const { getStore } = require('@netlify/blobs');
 // store explicitly from env vars set once in the Netlify UI. Falls back to auto-config
 // (which works on newer sites) if the env vars aren't present.
 function makeStore() {
-  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
+  // Site ID isn't secret — hardcode super-dodol-d17ae4's so only the TOKEN needs
+  // to be an env var. An env var still overrides if set.
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID || 'd542819e-69b9-4956-ab81-84f3bb87465f';
   const token  = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
   if (siteID && token) return getStore({ name: 'ocelot-stats', siteID, token });
   return getStore('ocelot-stats');

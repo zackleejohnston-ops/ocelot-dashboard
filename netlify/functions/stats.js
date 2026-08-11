@@ -2,7 +2,9 @@ const { getStore } = require('@netlify/blobs');
 
 // See rollup-background.js — this site needs explicit Blobs config from env vars.
 function makeStore() {
-  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
+  // Site ID isn't secret — hardcode super-dodol-d17ae4's so only the TOKEN needs
+  // to be an env var. An env var still overrides if set.
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID || 'd542819e-69b9-4956-ab81-84f3bb87465f';
   const token  = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
   if (siteID && token) return getStore({ name: 'ocelot-stats', siteID, token });
   return getStore('ocelot-stats');
@@ -32,8 +34,7 @@ function lastShippingDays(n) {
 }
 
 exports.handler = async function (event, context) {
-  const hasCreds = !!((process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID) &&
-                      (process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN));
+  const hasToken = !!(process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN);
 
   // Storage self-test (write + read a marker), so a deploy can be verified independently of data.
   let blobsOk = false, blobsError = null, store = null;
@@ -49,7 +50,7 @@ exports.handler = async function (event, context) {
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blobsOk: false, hasCreds: hasCreds, blobsError: blobsError, lastDay: null, week: null })
+      body: JSON.stringify({ blobsOk: false, hasToken: hasToken, blobsError: blobsError, lastDay: null, week: null })
     };
   }
 
@@ -91,7 +92,7 @@ exports.handler = async function (event, context) {
     headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       blobsOk: blobsOk,
-      hasCreds: hasCreds,
+      hasToken: hasToken,
       blobsError: blobsError,
       cachedDays: days.map(r => r.date),
       lastDay: lastDay,
