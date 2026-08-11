@@ -1,0 +1,9 @@
+{
+  "name": "ocelot-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Netlify functions for the Ocelot Logistics ops dashboard",
+  "dependencies": {
+    "@netlify/blobs": "^8.0.0"
+  }
+}
