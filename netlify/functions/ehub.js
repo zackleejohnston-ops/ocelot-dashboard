@@ -71,16 +71,11 @@ exports.handler = async function (event, context) {
   let all = [];
   let truncated = false;
   let error = null;
-  let env = null; // DIAGNOSTIC: first page's non-array envelope (looking for a total-count field)
 
   for (let page = 1; page <= MAX_PAGES; page++) {
     if (Date.now() - start > BUDGET_MS) { truncated = true; break; }
     const body = await ehubGetPage(page);
     if (body === null && page === 1) error = 'ehub request failed';
-    if (page === 1 && body && !Array.isArray(body)) {
-      env = {};
-      Object.keys(body).forEach(k => { if (!Array.isArray(body[k])) env[k] = body[k]; });
-    }
     const pageRows = rowsOf(body);
     let added = 0;
     for (let i = 0; i < pageRows.length; i++) {
@@ -100,8 +95,7 @@ exports.handler = async function (event, context) {
       count: all.length,
       day: ymd(day),
       truncated: truncated,
-      error: error,
-      _env: env
+      error: error
     })
   };
 };

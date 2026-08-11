@@ -1,2 +1,7 @@
 [build]
   functions = "netlify/functions"
+
+# Daily at 09:00 UTC (~4-5am ET) — after the day is complete. cron-rollup just kicks
+# off rollup-background, which tallies each recent shipping day into Blobs.
+[functions."cron-rollup"]
+  schedule = "0 9 * * *"

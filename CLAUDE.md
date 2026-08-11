@@ -3,18 +3,31 @@
 ## What this is
 A single-page internal ops dashboard for Ocelot Logistics, a boutique 3PL in Perrysburg, Ohio.
 Deployed on Netlify. Audience is Richard, the owner.
-**Live URL:** https://super-dodol-d17ae4.netlify.app/ (functions at `/.netlify/functions/{orders,ehub,billing}`).
+**Live URL:** https://super-dodol-d17ae4.netlify.app/ (functions at `/.netlify/functions/{orders,ehub,billing,stats,rollup-background}`).
 Fetch these directly to verify changes against real data before/after a deploy.
+**Site ID:** `d542819e-69b9-4956-ab81-84f3bb87465f`. Blobs needs env var `BLOBS_TOKEN` (a Netlify PAT,
+set ~4yr expiry) on the site — this older site doesn't auto-provision Blobs. Site ID is hardcoded as a
+fallback in the functions.
 NOTE: the apex `ocelot-logistics.com` now serves a **Wix** marketing site, not this dashboard.
 (Hitting `ocelot-logistics.com/.netlify/functions/*` returns a Wix 400 page.) Update if the dashboard
 gets its own domain.
 
 ## Structure
 - `index.html` — the entire front end, one file (~100KB, includes base64 logo)
-- `netlify/functions/orders.js` — Infoplus WMS: order status counts, shipped orders
+- `index.html` front end
+- `netlify/functions/orders.js` — Infoplus WMS: order status counts + 100-most-recent orders table
 - `netlify/functions/billing.js` — Infoplus Invoice Worksheets: latest weekly billing per client
-- `netlify/functions/ehub.js` — Ehub TMS: yesterday's shipments
-- Deploy flow: commit/push via GitHub Desktop → Netlify auto-deploys → hard-refresh (Ctrl+Shift+R)
+- `netlify/functions/stats.js` — **fast reader** the shipped hero calls: exact last-day + weekly
+  totals from the Blobs cache (`<1s`). Falls back to live `ehub.js` if the cache is empty.
+- `netlify/functions/rollup-background.js` — **background fn (15-min)**, the precompute: fully
+  paginates Ehub for each recent shipping day and caches exact `{count, avgFreight, byClient}` in Blobs.
+  Manual trigger: `GET /.netlify/functions/rollup-background` (`?force=1`, `?days=N`).
+- `netlify/functions/cron-rollup.js` — scheduled daily (netlify.toml, 09:00 UTC); just triggers the
+  background rollup.
+- `netlify/functions/ehub.js` — Ehub TMS live pull (last shipping day); now only a **fallback** for stats.
+- `package.json` — one dep, `@netlify/blobs`.
+- Deploy flow: commit/push (I can push directly, or GitHub Desktop) → Netlify auto-deploys →
+  hard-refresh (Ctrl+Shift+R).
 
 ## Brand
 Canonical source: `Ocelot_Brand_Sheet_v2.pdf` (kept at `C:\Users\EC2\Desktop\ocelot\brand\`).
@@ -75,12 +88,14 @@ then takes the newest end date. Real runs are named like "Joymode Billing 7/19/2
 ## Current layout
 Two heroes side by side:
 1. **Billed · Latest Week** → "By Client" breakdown underneath
-2. **Avg Freight · Last Shipping Day** (shipped count + the date in the subtitle) → "Shipped · Last
-   Shipping Day · by client" underneath. From Ehub (accurate source). "Last shipping day" = yesterday,
-   stepping back over Sat/Sun — so **Monday shows Friday** instead of a zero board (nothing ships on
-   weekends). This is the real fix for "Monday looks dead" — that symptom was always this hero, not the
-   orders table. `ehub.js` returns `day` + a `truncated` flag (count shows a trailing `+` if a busy day
-   spilled past the fetch budget).
+2. **Shipped · This Week** (big number = exact weekly shipment count; subtitle = avg freight + how many
+   shipping days) → "Shipped This Week · by client" underneath. Served by `stats.js` from the Blobs
+   cache — **exact and complete**, and non-zero on Monday. "Week" = the last up-to-5 shipping days
+   (a business week). If the cache is empty, `loadStats()` falls back to `loadEhubLive()` which relabels
+   to "Last Shipping Day" and shows that day's live (possibly partial, `+`) numbers.
+   Why cached, not live: a single day is 400–900 shipments and Ehub is slow (~5s/200 rows), so exact
+   daily/weekly totals can't be fetched inside Netlify's ~10s function limit — hence the background
+   rollup. Measured Mon 8/10 = 683 shipped; that week = 1,699.
 
 Below: the collapsible Recent Orders table — the **100 most recent** orders by `orderDate` (live view).
    Scrolls internally (max-height). `orders.js` reports `ordersWindow` ('recent'); the pill shows
@@ -92,11 +107,12 @@ Verified against the live `*.netlify.app` endpoints:
   order pull is ~1500+ rows / multiple MB — **cannot be fetched in Netlify's ~10s budget.**
 - **~200–350 shipments per day** (Ehub), and the Ehub API is **slow (~5s per 200-row page)** and
   returns **oldest-first**. In a 7s budget you get only ~400 rows = the *oldest ~2 days*, mislabeled.
-- **Consequence:** a true rolling 7-day shipped total can't be computed live and honestly. Both
-  time-windowed views were therefore scoped to what IS accurate: last-shipping-**day** for shipments,
-  most-recent for orders. If a real **weekly shipped total** is ever wanted, it needs a different
-  mechanism (a scheduled precompute/cache, or an Ehub total-count field if one exists — `ehub.js`
-  currently returns `_env`, a diagnostic dump of Ehub's response envelope, to check for that).
+- **Consequence:** exact daily/weekly shipped totals can't be computed live → **solved with a precompute**
+  (rollup-background → Blobs → stats.js). Ehub exposes **no total-count field** (checked the response
+  envelope — only the array), so the rollup must fully paginate; that's why it lives in a 15-min
+  background function, not the request path.
+- The **Recent Orders table** stays "100 most recent" (live). At ~250 orders/day it's never blank, and a
+  true 7-day order pull (~1500+ rows) is still too heavy — the precompute is shipments-only for now.
 
 Earlier versions had status tiles, a 7-day chart, a shipping-status donut, and several client panels —
 all deliberately removed. Don't add them back without being asked.

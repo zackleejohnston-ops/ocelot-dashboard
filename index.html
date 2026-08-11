@@ -246,12 +246,12 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
  
   <div class="hero-col">
     <div class="bill-hero">
-      <div class="bl">Avg Freight · Last Shipping Day</div>
+      <div class="bl" id="shipLabel">Shipped · This Week</div>
       <div class="bv" id="sF">-</div>
-      <div class="bsub"><span id="shipTotal">-</span> shipped · <span id="shipDay">–</span> · Ehub</div>
+      <div class="bsub">avg freight <span id="shipTotal">-</span> · <span id="shipDay">–</span> · Ehub</div>
     </div>
     <div class="bill-card">
-      <div class="bill-card-h">Shipped · Last Shipping Day · by client</div>
+      <div class="bill-card-h" id="shipCardH">Shipped This Week · by client</div>
       <div class="bill-list" id="shippedBar"><div class="sbox">Loading…</div></div>
     </div>
   </div>
@@ -413,12 +413,12 @@ function loadInfoplus(){
       document.getElementById('bar').innerHTML = ci.map(function(i){ return '<div class="brow"><div class="blbl">'+i.l+'</div><div class="btrk"><div class="bfil" style="width:'+Math.round(i.c/mx*100)+'%;background:var(--gold)"></div></div><div class="bcnt">'+i.c+'</div></div>'; }).join('');
       document.getElementById('bm').textContent = ci.length+' clients';
       document.getElementById('otb').innerHTML = orders.map(function(o){ return '<tr><td class="ono">'+(o.orderNo||'-')+'</td><td>'+(o.customerOrderNo||'-')+'</td><td class="cn">'+cn(o.lobId)+'</td><td style="font-size:10px;color:var(--gr)">'+fd(o.orderDate)+'</td><td style="font-size:10px;color:var(--cr)">'+(o.freight?'$'+Number(o.freight).toFixed(2):'-')+'</td><td>'+sb(o.status)+'</td></tr>'; }).join('');
-      if(d.series){ buildSpark(d.series); }  // buildShipHero removed: shipTotal now set from Ehub (accurate)
-      if(d.wFreightAvg){ document.getElementById('sF').textContent = '$'+Number(d.wFreightAvg).toFixed(2); }
+      if(d.series){ buildSpark(d.series); }  // buildShipHero removed: shipped hero now owned by loadStats()
     })
     .catch(function(e){ document.getElementById('sT').textContent='Err'; document.getElementById('awaitBar').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
-function loadEhub(){
+// Fallback only: hit Ehub live for the last shipping day if the cached /stats isn't ready.
+function loadEhubLive(){
   fetch('/.netlify/functions/ehub')
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
     .then(function(d){
@@ -431,14 +431,15 @@ function loadEhub(){
       document.getElementById('sTr').textContent = tr;
       document.getElementById('sOfd').textContent = ofd;
       var truncated = !!(d && d.truncated);
-      document.getElementById('em').textContent = sh.length+' shipped · '+fdow(d && d.day);
-      var stEl = document.getElementById('shipTotal'); if(stEl) stEl.textContent = sh.length.toLocaleString()+(truncated?'+':'');
-      var sdEl = document.getElementById('shipDay'); if(sdEl) sdEl.textContent = fdow(d && d.day);
       var rated = sh.filter(function(s){ return s.shipping_service && s.shipping_service.rate && parseFloat(s.shipping_service.rate) > 0; });
-      if(rated.length){
-        var avg = rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length;
-        document.getElementById('sF').textContent = '$'+avg.toFixed(2);
-      }
+      var avg = rated.length ? rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length : 0;
+      // Live fallback view = last shipping day. Big number = count, subtitle = avg freight.
+      var lbl=document.getElementById('shipLabel'); if(lbl) lbl.textContent='Shipped · Last Shipping Day';
+      var cardH=document.getElementById('shipCardH'); if(cardH) cardH.textContent='Shipped Last Shipping Day · by client';
+      document.getElementById('sF').textContent = sh.length.toLocaleString()+(truncated?'+':'');
+      document.getElementById('em').textContent = sh.length+' shipped · '+fdow(d && d.day);
+      var stEl = document.getElementById('shipTotal'); if(stEl) stEl.textContent = '$'+avg.toFixed(2);
+      var sdEl = document.getElementById('shipDay'); if(sdEl) sdEl.textContent = fdow(d && d.day);
       var items = [];
       if(del) items.push({l:'Delivered',v:del,c:'#4CAF50'});
       if(tr) items.push({l:'In Transit',v:tr,c:'#4A9EFF'});
@@ -470,6 +471,26 @@ function loadEhub(){
     })
     .catch(function(e){ document.getElementById('em').textContent='Ehub error'; document.getElementById('dleg').innerHTML='<div class="err">'+e.message+'</div>'; });
 }
+// Primary shipped-hero source: exact weekly totals precomputed into Blobs by the
+// background rollup, served by /stats. Falls back to the live Ehub day view if the
+// cache isn't populated yet.
+function loadStats(){
+  fetch('/.netlify/functions/stats')
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(d){
+      var wk = d && d.week;
+      if(!wk || !wk.count){ loadEhubLive(); return; }
+      var lbl=document.getElementById('shipLabel'); if(lbl) lbl.textContent='Shipped · This Week';
+      var cardH=document.getElementById('shipCardH'); if(cardH) cardH.textContent='Shipped This Week · by client';
+      countUp(document.getElementById('sF'), wk.count, '', false);
+      var stEl=document.getElementById('shipTotal'); if(stEl) stEl.textContent = '$'+Number(wk.avgFreight).toFixed(2);
+      var sdEl=document.getElementById('shipDay'); if(sdEl) sdEl.textContent = wk.daysCovered+' shipping days'+(wk.complete?'':' (partial)');
+      var items = Object.entries(wk.byClient||{}).map(function(e){ return {l:cn(e[0]), c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
+      buildBars('shippedBar', items, 'shipped');
+      var smeta=document.getElementById('shippedMeta'); if(smeta) smeta.textContent = items.length+' clients';
+    })
+    .catch(function(e){ loadEhubLive(); });
+}
 function loadBilling(){
   fetch('/.netlify/functions/billing')
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
@@ -499,7 +520,7 @@ function loadBilling(){
 function loadAll(){
   document.getElementById('upd').textContent = 'Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
   loadInfoplus();
-  loadEhub();
+  loadStats();
   loadBilling();
 }
 loadAll();
