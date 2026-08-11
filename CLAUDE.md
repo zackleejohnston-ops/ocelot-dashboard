@@ -2,7 +2,10 @@
 
 ## What this is
 A single-page internal ops dashboard for Ocelot Logistics, a boutique 3PL in Perrysburg, Ohio.
-Deployed on Netlify (ocelot-logistics.com). Audience is Richard, the owner.
+Deployed on Netlify. Audience is Richard, the owner.
+NOTE: the apex `ocelot-logistics.com` now serves a **Wix** marketing site, not this dashboard — the
+board lives on its `*.netlify.app` URL. (Hitting `ocelot-logistics.com/.netlify/functions/*` returns a
+Wix 400 page.) Update this line if/when the dashboard gets its own domain.
 
 ## Structure
 - `index.html` — the entire front end, one file (~100KB, includes base64 logo)
@@ -70,9 +73,17 @@ then takes the newest end date. Real runs are named like "Joymode Billing 7/19/2
 ## Current layout
 Two heroes side by side:
 1. **Billed · Latest Week** → "By Client" breakdown underneath
-2. **Avg Freight · Yesterday** (shipped count in the subtitle line) → "Shipped Yesterday · by client" underneath
+2. **Avg Freight · Last 7 Days** (shipped count in the subtitle line) → "Shipped · Last 7 Days · by client"
+   underneath. Both come from Ehub (the accurate source) over the last 7 completed days (through
+   yesterday; "today" is incomplete). Was "Yesterday" — changed because Monday showed zero after the
+   shipment-free weekend. `ehub.js` paginates the week and returns a `truncated` flag; the count shows
+   a trailing `+` if the full week couldn't be fetched in budget.
 
-Below: the collapsible Recent Orders table. That's it.
+Below: the collapsible Recent Orders table — now the **last 7 days** by `orderDate` (was "100 most
+   recent"). `orders.js` falls back to the old 100-most-recent pull if the date filter returns
+   empty/errors, and reports which via `ordersWindow` ('7d' | 'recent'); the live pill shows "last 7
+   days" or "recent" accordingly, so the label never overpromises. Table scrolls internally (max-height).
+   That's it.
 
 Earlier versions had status tiles, a 7-day chart, a shipping-status donut, and several client panels —
 all deliberately removed. Don't add them back without being asked.

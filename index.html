@@ -161,7 +161,7 @@ body{
 .arr{font-size:10px;color:var(--gold2);transition:transform .3s;}
 .arr.open{transform:rotate(180deg);}
 .obody{display:none;}
-.obody.open{display:block;}
+.obody.open{display:block;max-height:440px;overflow-y:auto;}
 table{width:100%;border-collapse:collapse;font-size:11px;}
 thead th{background:rgba(9,17,12,.6);padding:10px 16px;text-align:left;font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--txt-dim);text-transform:uppercase;border-bottom:1px solid var(--panel-edge-soft);white-space:nowrap;}
 tbody tr{border-bottom:1px solid rgba(244,239,230,.04);transition:background .15s;}
@@ -246,12 +246,12 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
  
   <div class="hero-col">
     <div class="bill-hero">
-      <div class="bl">Avg Freight · Yesterday</div>
+      <div class="bl">Avg Freight · Last 7 Days</div>
       <div class="bv" id="sF">-</div>
-      <div class="bsub"><span id="shipTotal">-</span> shipped yesterday · Ehub</div>
+      <div class="bsub"><span id="shipTotal">-</span> shipped · last 7 days · Ehub</div>
     </div>
     <div class="bill-card">
-      <div class="bill-card-h">Shipped Yesterday · by client</div>
+      <div class="bill-card-h">Shipped · Last 7 Days · by client</div>
       <div class="bill-list" id="shippedBar"><div class="sbox">Loading…</div></div>
     </div>
   </div>
@@ -380,7 +380,13 @@ function loadInfoplus(){
       document.getElementById('cShip').textContent = counts['Shipped'] || 0;
       document.getElementById('cBack').textContent = counts['Back Order'] || 0;
       document.getElementById('cCanc').textContent = counts['Cancelled'] || 0;
-      if(!Array.isArray(orders) || !orders.length){ document.getElementById('sT').textContent='0'; return; }
+      if(!Array.isArray(orders) || !orders.length){
+        document.getElementById('sT').textContent='0';
+        document.getElementById('om').textContent = (d.ordersWindow!=='recent') ? 'last 7 days' : 'recent';
+        document.getElementById('otb').innerHTML = '<tr><td colspan="6" class="sbox">No orders in the last 7 days</td></tr>';
+        document.getElementById('fc').textContent = '0 orders · last 7 days';
+        return;
+      }
       var today = new Date().toISOString().split('T')[0];
       var awaiting = orders.filter(function(o){ return o.status==='On Order' || o.status==='Pending' || o.status==='Processed'; });
       var shippedToday = orders.filter(function(o){ return o.status==='Shipped' && o.orderDate && o.orderDate.indexOf(today)>-1; });
@@ -388,8 +394,9 @@ function loadInfoplus(){
       document.getElementById('sT').textContent = orders.length;
       document.getElementById('sO').textContent = awaiting.length;
       document.getElementById('sS').textContent = shippedToday.length || shippedAll.length;
-      document.getElementById('om').textContent = 'live';
-      document.getElementById('fc').textContent = orders.length+' recent orders loaded';
+      var win7 = (d.ordersWindow !== 'recent');
+      document.getElementById('om').textContent = win7 ? 'last 7 days' : 'recent';
+      document.getElementById('fc').textContent = orders.length+(d.ordersTruncated?'+':'')+(win7?' orders · last 7 days':' recent orders');
       var ac = {};
       awaiting.forEach(function(o){ var n=cn(o.lobId); ac[n]=(ac[n]||0)+1; });
       var ai = Object.entries(ac).map(function(e){ return {l:e[0],c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
@@ -422,8 +429,9 @@ function loadEhub(){
       document.getElementById('sDel').textContent = del;
       document.getElementById('sTr').textContent = tr;
       document.getElementById('sOfd').textContent = ofd;
-      document.getElementById('em').textContent = sh.length+' shipped yesterday';
-      var stEl = document.getElementById('shipTotal'); if(stEl) stEl.textContent = sh.length.toLocaleString();
+      var truncated = !!(d && d.truncated);
+      document.getElementById('em').textContent = sh.length+' shipped · last 7 days';
+      var stEl = document.getElementById('shipTotal'); if(stEl) stEl.textContent = sh.length.toLocaleString()+(truncated?'+':'');
       var rated = sh.filter(function(s){ return s.shipping_service && s.shipping_service.rate && parseFloat(s.shipping_service.rate) > 0; });
       if(rated.length){
         var avg = rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length;

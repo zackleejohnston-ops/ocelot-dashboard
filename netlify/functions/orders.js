@@ -79,11 +79,25 @@ exports.handler = async function (event, context) {
     const yesterday = dayStr(1);
     const weekAgo = dayStr(7);
  
-    // ---- 1) Status counts + recent-orders table (unchanged behavior) ----
-    const ordersRes = await infoplusGet(
-      '/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate'
+    // ---- 1) Status counts + recent-orders table ----
+    // Recent Orders now shows the LAST 7 DAYS (by orderDate) so Monday isn't blank
+    // after a shipment-free weekend. Safety net: if the date filter returns nothing
+    // or Infoplus rejects it, fall back to the previous "100 most recent" pull so the
+    // table can never regress to empty. `ordersWindow` tells the UI which one it got.
+    const orderFilter = encodeURIComponent('orderDate gt "' + weekAgo + '"');
+    let ordersRes = await infoplusGet(
+      '/infoplus-wms/api/beta/order/search?filter=' + orderFilter + '&limit=250&sort=!orderDate'
     );
-    const orders = unwrap(ordersRes);
+    let orders = unwrap(ordersRes);
+    let ordersWindow = '7d';
+    if (!orders.length || (ordersRes && ordersRes.errors)) {
+      ordersWindow = 'recent';
+      ordersRes = await infoplusGet(
+        '/infoplus-wms/api/beta/order/search?filter=orderNo%20gt%200&limit=100&sort=!orderDate'
+      );
+      orders = unwrap(ordersRes);
+    }
+    const ordersTruncated = ordersWindow === '7d' && orders.length >= 250;
     const counts = { Pending: 0, Error: 0, 'On Order': 0, Processed: 0, Shipped: 0, 'Back Order': 0, Cancelled: 0 };
     orders.forEach(o => {
       const k = NORM[(o.status || '').toLowerCase().replace(/[^a-z]/g, '')];
@@ -151,7 +165,9 @@ exports.handler = async function (event, context) {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
       body: JSON.stringify({
-        orders,          // recent-orders table
+        orders,          // recent-orders table (last 7 days, or 100-most-recent on fallback)
+        ordersWindow,    // '7d' normally, 'recent' if the 7-day filter fell back
+        ordersTruncated, // true if the 7-day pull hit the 250 cap (show "N+")
         counts,          // status row
         clients,         // per-client shipments + freight (empty if pull failed)
         yShipTotal, yFreightAvg,

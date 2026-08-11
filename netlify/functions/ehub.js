@@ -1,51 +1,107 @@
 const https = require('https');
 
-exports.handler = async function(event, context) {
+// Ehub is the accurate, complete shipment source, so a 7-day total from here is one
+// we can stand behind (unlike the capped Infoplus order pulls).
+// Window: the last 7 COMPLETED days, through yesterday. "Today" is excluded because
+// it's incomplete (per Trevis). On a Monday this shows the whole prior week instead
+// of a blank board, since nothing ships over the weekend.
+// We PAGINATE so a full week never gets silently truncated at one page, and dedupe by
+// shipment id so that if Ehub ever ignores the page param we don't double-count.
+
+exports.handler = async function (event, context) {
   // TODO: rotate this key in Ehub and move it to a Netlify env var (EH_KEY), then delete the fallback.
   const EH_KEY = process.env.EH_KEY || 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpYXQiOjE3ODExMDM3MjksImRhdGEiOnsidXNlciI6eyJpZCI6MjExMzEsImN1c3RvbWVyX2lkIjoxMDgxMSwiZW1haWwiOiJ6YWNrbGVlam9obnN0b25AZ21haWwuY29tIn0sInNjb3BlcyI6WyJhcGlfcHVibGljIl19fQ.t_axIrFMt0vSjiZ3sQuignuOkadEV2Ux5r2717C6gAKsbIR-e1Ak7RCnaTVbX1SLfSf3AKniSj7aSX7Gj24h9A';
 
-  // Yesterday = last completed day (per Trevis: "today" is incomplete).
-  var y = new Date();
-  y.setDate(y.getDate() - 1);
-  var yyyy = y.getFullYear();
-  var mm = String(y.getMonth() + 1).padStart(2, '0');
-  var dd = String(y.getDate()).padStart(2, '0');
-  var dateStr = yyyy + '-' + mm + '-' + dd;
+  function ymd(d) {
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  }
+
+  // to = yesterday (last completed day); from = 7 days back → 7 full days ending yesterday.
+  var now = new Date();
+  var to = new Date(now);   to.setDate(to.getDate() - 1);
+  var from = new Date(now); from.setDate(from.getDate() - 7);
 
   // Ehub's documented date format: "YYYY-MM-DD hh:mm:ss p" (12-hour clock + AM/PM)
-  var fromTime = dateStr + ' 12:00:00 AM';
-  var toTime   = dateStr + ' 11:59:59 PM';
+  var fromTime = ymd(from) + ' 12:00:00 AM';
+  var toTime   = ymd(to)   + ' 11:59:59 PM';
 
-  var qs = 'per_page=200'
-    + '&status=shipped'
-    + '&ship_from_time=' + encodeURIComponent(fromTime)
-    + '&ship_to_time=' + encodeURIComponent(toTime);
-
-  return new Promise((resolve) => {
-    const options = {
-      hostname: 'app.ehub.com',
-      port: 443,
-      path: '/api/v2/shipments?' + qs,
-      method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + EH_KEY,
-        'Accept': 'application/json'
-      }
-    };
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        resolve({
-          statusCode: 200,
-          headers: { 'Access-Control-Allow-Origin': '*' },
-          body: data
-        });
+  function ehubGetPage(page) {
+    return new Promise((resolve) => {
+      var qs = 'per_page=200'
+        + '&page=' + page
+        + '&status=shipped'
+        + '&ship_from_time=' + encodeURIComponent(fromTime)
+        + '&ship_to_time='   + encodeURIComponent(toTime);
+      const options = {
+        hostname: 'app.ehub.com',
+        port: 443,
+        path: '/api/v2/shipments?' + qs,
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + EH_KEY, 'Accept': 'application/json' }
+      };
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { resolve(null); } });
       });
+      req.on('error', () => resolve(null));
+      req.setTimeout(6000, () => { req.destroy(); resolve(null); });
+      req.end();
     });
-    req.on('error', (err) => {
-      resolve({ statusCode: 500, body: JSON.stringify({ error: err.message }) });
-    });
-    req.end();
-  });
+  }
+
+  // Ehub may return the array bare, or wrapped under shipments/data.
+  function rowsOf(body) {
+    if (Array.isArray(body)) return body;
+    if (body && Array.isArray(body.shipments)) return body.shipments;
+    if (body && Array.isArray(body.data)) return body.data;
+    return [];
+  }
+
+  // Stable key so a repeated page (page param ignored) can't inflate the count.
+  function keyOf(s) {
+    if (s.id != null) return 'id:' + s.id;
+    if (s.shipment_id != null) return 'sid:' + s.shipment_id;
+    if (s.parcels && s.parcels[0] && s.parcels[0].tracking_number) return 'tn:' + s.parcels[0].tracking_number;
+    return JSON.stringify(s).slice(0, 160);
+  }
+
+  const PER_PAGE = 200, MAX_PAGES = 20, BUDGET_MS = 7000;
+  const start = Date.now();
+  const seen = {};
+  let all = [];
+  let truncated = false;
+  let error = null;
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    if (Date.now() - start > BUDGET_MS) { truncated = true; break; }
+    const body = await ehubGetPage(page);
+    if (body === null && page === 1) error = 'ehub request failed';
+    const pageRows = rowsOf(body);
+    let added = 0;
+    for (let i = 0; i < pageRows.length; i++) {
+      const k = keyOf(pageRows[i]);
+      if (!seen[k]) { seen[k] = 1; all.push(pageRows[i]); added++; }
+    }
+    // Last page (short) or nothing new (cursor-style / page ignored) → stop.
+    if (pageRows.length < PER_PAGE) break;
+    if (added === 0) break;
+    if (page === MAX_PAGES) truncated = true;
+  }
+
+  return {
+    statusCode: 200,
+    headers: { 'Access-Control-Allow-Origin': '*' },
+    body: JSON.stringify({
+      shipments: all,
+      count: all.length,
+      windowDays: 7,
+      from: ymd(from),
+      to: ymd(to),
+      truncated: truncated,
+      error: error
+    })
+  };
 };
