@@ -50,7 +50,15 @@ exports.handler = async function (event, context) {
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blobsOk: false, hasToken: hasToken, blobsError: blobsError, lastDay: null, week: null })
+      body: JSON.stringify({
+        blobsOk: false,
+        hasToken: hasToken,
+        blobsError: blobsError,
+        // DIAGNOSTIC (names only, no values): shows what env vars matching blob/token/site exist.
+        seenEnvKeys: Object.keys(process.env).filter(k => /blob|token|site/i.test(k)),
+        lastDay: null,
+        week: null
+      })
     };
   }
 
