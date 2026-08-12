@@ -68,12 +68,15 @@ exports.handler = async function (event, context) {
   // Weekly = exact sum over the last up-to-5 cached shipping days (a business week).
   const weekDays = days.slice(0, 5);
   let wCount = 0, wFreightSum = 0, wRated = 0;
+  let wStdSum = 0, wStdCount = 0, wExpSum = 0, wExpCount = 0;
   const wByClient = {};
   let wComplete = true;
   weekDays.forEach(r => {
     wCount += r.count || 0;
     wFreightSum += r.freightSum || 0;
     wRated += r.ratedCount || 0;
+    wStdSum += r.stdSum || 0; wStdCount += r.stdCount || 0;
+    wExpSum += r.expSum || 0; wExpCount += r.expCount || 0;
     if (r.complete === false) wComplete = false;
     const bc = r.byClient || {};
     Object.keys(bc).forEach(k => { wByClient[k] = (wByClient[k] || 0) + bc[k]; });
@@ -81,6 +84,10 @@ exports.handler = async function (event, context) {
   const week = {
     count: wCount,
     avgFreight: wRated ? Math.round((wFreightSum / wRated) * 100) / 100 : 0,
+    stdAvg: wStdCount ? Math.round((wStdSum / wStdCount) * 100) / 100 : 0,
+    stdCount: wStdCount,
+    expAvg: wExpCount ? Math.round((wExpSum / wExpCount) * 100) / 100 : 0,
+    expCount: wExpCount,
     byClient: wByClient,
     daysCovered: weekDays.length,
     dates: weekDays.map(r => r.date),

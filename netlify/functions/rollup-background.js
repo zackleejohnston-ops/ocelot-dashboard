@@ -90,6 +90,19 @@ function lobOf(s) {
   return 'unknown';
 }
 
+// Split the freight average so it isn't skewed high by pricey shipments.
+// STANDARD = everyday domestic ground/economy parcels under 70 lb (the ~2/3 that ship
+// cheap). EXPEDITED = everything else: priority/express/next-day, international, and
+// heavy/oversize. Ehub has NO real LTL/freight flag, so this service-name + weight rule
+// is our definition (validated across the cached week, not just one day).
+function isStandardShip(s) {
+  const svc = String((s.shipping_service || {}).service || '').toLowerCase();
+  const wt = (s.parcels && s.parcels[0] && s.parcels[0].weight) || 0;
+  if (svc.indexOf('international') > -1) return false;
+  if (wt >= 70) return false;
+  return /ground|advantage|expedited/.test(svc);
+}
+
 // Fully paginate one shipping day. Generous caps because we're in a background function.
 async function computeDay(dateStr) {
   const fromTime = dateStr + ' 12:00:00 AM';
@@ -98,6 +111,7 @@ async function computeDay(dateStr) {
   const start = Date.now();
   const seen = {};
   let count = 0, freightSum = 0, ratedCount = 0;
+  let stdSum = 0, stdCount = 0, expSum = 0, expCount = 0;
   const byClient = {};
   let complete = true;
 
@@ -114,7 +128,11 @@ async function computeDay(dateStr) {
       added++;
       count++;
       const rate = s.shipping_service && s.shipping_service.rate ? parseFloat(s.shipping_service.rate) : 0;
-      if (rate > 0) { freightSum += rate; ratedCount++; }
+      if (rate > 0) {
+        freightSum += rate; ratedCount++;
+        if (isStandardShip(s)) { stdSum += rate; stdCount++; }
+        else { expSum += rate; expCount++; }
+      }
       const lob = lobOf(s);
       byClient[lob] = (byClient[lob] || 0) + 1;
     }
@@ -129,6 +147,8 @@ async function computeDay(dateStr) {
     ratedCount: ratedCount,
     freightSum: Math.round(freightSum * 100) / 100,
     avgFreight: ratedCount ? Math.round((freightSum / ratedCount) * 100) / 100 : 0,
+    stdSum: Math.round(stdSum * 100) / 100, stdCount: stdCount,
+    expSum: Math.round(expSum * 100) / 100, expCount: expCount,
     byClient: byClient,
     complete: complete,
     computedAtEpoch: Date.now()

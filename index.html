@@ -266,7 +266,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
     <div class="bill-hero">
       <div class="bl" id="shipLabel">Shipped · This Week</div>
       <div class="bv" id="sF">-</div>
-      <div class="bsub">avg freight <span id="shipTotal">-</span> · <span id="shipDay">–</span> · Ehub</div>
+      <div class="bsub">freight <span id="shipStd">–</span> standard · <span id="shipExp">–</span> expedited · Ehub</div>
     </div>
     <div class="bill-card">
       <div class="bill-card-h" id="shipCardH">Shipped This Week · by client</div>
@@ -326,6 +326,8 @@ var CL = {
 function cn(id){ return CL[String(id)] || 'LOB '+id; }
 function fd(d){ if(!d) return '-'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function fdow(s){ if(!s) return '–'; var dt=new Date(s+'T12:00:00'); return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+// Standard = domestic ground/economy under 70lb; everything else = expedited (mirrors rollup-background.js).
+function isStdJs(s){ var svc=((s.shipping_service||{}).service||'').toLowerCase(); var wt=(s.parcels&&s.parcels[0]&&s.parcels[0].weight)||0; if(svc.indexOf('international')>-1) return false; if(wt>=70) return false; return /ground|advantage|expedited/.test(svc); }
 function sb(s){ var c=(s||'').toLowerCase().replace(/ /g,'-'); var cl='bot'; if(c==='on-order') cl='bon'; else if(c==='processed') cl='bpr'; else if(c==='shipped') cl='bsh'; else if(c==='error') cl='berr'; else if(c==='back-order') cl='bbk'; return '<span class="badge '+cl+'">'+s+'</span>'; }
 function tog(){ document.getElementById('ob').classList.toggle('open'); document.getElementById('arr').classList.toggle('open'); }
 var TWO_LEAVES = '22352';
@@ -450,14 +452,17 @@ function loadEhubLive(){
       document.getElementById('sOfd').textContent = ofd;
       var truncated = !!(d && d.truncated);
       var rated = sh.filter(function(s){ return s.shipping_service && s.shipping_service.rate && parseFloat(s.shipping_service.rate) > 0; });
-      var avg = rated.length ? rated.reduce(function(sum,s){ return sum + parseFloat(s.shipping_service.rate); }, 0) / rated.length : 0;
-      // Live fallback view = last shipping day. Big number = count, subtitle = avg freight.
+      var stdR=[], expR=[];
+      rated.forEach(function(s){ (isStdJs(s)?stdR:expR).push(parseFloat(s.shipping_service.rate)); });
+      var stdAvg = stdR.length ? stdR.reduce(function(a,b){return a+b;},0)/stdR.length : 0;
+      var expAvg = expR.length ? expR.reduce(function(a,b){return a+b;},0)/expR.length : 0;
+      // Live fallback view = last shipping day. Big number = count, subtitle = split freight.
       var lbl=document.getElementById('shipLabel'); if(lbl) lbl.textContent='Shipped · Last Shipping Day';
       var cardH=document.getElementById('shipCardH'); if(cardH) cardH.textContent='Shipped Last Shipping Day · by client';
       document.getElementById('sF').textContent = sh.length.toLocaleString()+(truncated?'+':'');
       document.getElementById('em').textContent = sh.length+' shipped · '+fdow(d && d.day);
-      var stEl = document.getElementById('shipTotal'); if(stEl) stEl.textContent = '$'+avg.toFixed(2);
-      var sdEl = document.getElementById('shipDay'); if(sdEl) sdEl.textContent = fdow(d && d.day);
+      var stdEl = document.getElementById('shipStd'); if(stdEl) stdEl.textContent = '$'+stdAvg.toFixed(2);
+      var expEl = document.getElementById('shipExp'); if(expEl) expEl.textContent = '$'+expAvg.toFixed(2);
       var items = [];
       if(del) items.push({l:'Delivered',v:del,c:'#4CAF50'});
       if(tr) items.push({l:'In Transit',v:tr,c:'#4A9EFF'});
@@ -501,8 +506,8 @@ function loadStats(){
       var lbl=document.getElementById('shipLabel'); if(lbl) lbl.textContent='Shipped · This Week';
       var cardH=document.getElementById('shipCardH'); if(cardH) cardH.textContent='Shipped This Week · by client';
       document.getElementById('sF').textContent = Number(wk.count).toLocaleString();
-      var stEl=document.getElementById('shipTotal'); if(stEl) stEl.textContent = '$'+Number(wk.avgFreight).toFixed(2);
-      var sdEl=document.getElementById('shipDay'); if(sdEl) sdEl.textContent = wk.daysCovered+' shipping days'+(wk.complete?'':' (partial)');
+      var stdEl=document.getElementById('shipStd'); if(stdEl) stdEl.textContent = '$'+Number(wk.stdAvg||0).toFixed(2);
+      var expEl=document.getElementById('shipExp'); if(expEl) expEl.textContent = '$'+Number(wk.expAvg||0).toFixed(2);
       var items = Object.entries(wk.byClient||{}).map(function(e){ return {l:cn(e[0]), c:e[1]}; }).sort(function(a,b){ return b.c-a.c; });
       buildBars('shippedBar', items, 'shipped');
       var smeta=document.getElementById('shippedMeta'); if(smeta) smeta.textContent = items.length+' clients';
