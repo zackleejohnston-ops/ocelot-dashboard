@@ -105,6 +105,15 @@ Two heroes side by side:
    daily/weekly totals can't be fetched inside Netlify's ~10s function limit — hence the background
    rollup. Measured Mon 8/10 = 683 shipped; that week = 1,699.
 
+**Freight split (shipped hero subtitle):** shows `freight $X standard · $Y expedited` instead of one
+blended average, because the blend read high. Ehub has **no LTL/freight** — it's all parcel carriers
+(DHL/USPS/UPS/FedEx), so "LTL" isn't the cause; the skew is service mix. Definition (in
+`rollup-background.js` `isStandardShip()`, mirrored in index.html `isStdJs()`): **standard** = domestic
+ground/economy service (`/ground|advantage|expedited/`) under 70 lb; **expedited** = everything else
+(priority/express/next-day, international, heavy/oversize). Tallied per-bucket in the precompute
+(exactly aggregatable weekly) → `stats.js` returns `week.stdAvg/expAvg`. Validated 2026-08-11 across the
+week: standard ~$5.98 (69% of ships), expedited ~$12.95, vs blended ~$8.12.
+
 Below: the collapsible Recent Orders table — the **100 most recent** orders by `orderDate` (live view).
    Scrolls internally (max-height). `orders.js` reports `ordersWindow` ('recent'); the pill shows
    "recent". That's it.
