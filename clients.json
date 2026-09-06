@@ -1,0 +1,67 @@
+{
+  "_comment": "Ocelot client + accounting config. Single source of truth for: eHub Account Reference -> Xero contact mapping, revenue/cost account codes, and (future) per-client contracted rates + payroll/overhead allocation. Edit this, not code. Any eHub Account Reference NOT listed here is surfaced on-screen as 'unmapped', never silently dropped.",
+
+  "revenueAccounts": {
+    "4200": "Freight Revenue - Outbound",
+    "4000": "Warehousing Services",
+    "4020": "Management Fees",
+    "4100": "Materials Revenue",
+    "BG4001": "Technology Fees"
+  },
+  "revenueAccountRoles": {
+    "freight": ["4200"],
+    "other": ["4000", "4020", "4100", "BG4001"]
+  },
+  "costAccounts": {
+    "5200": "COS - Freight Outbound",
+    "5210": "COS - Freight Inbound",
+    "5100": "COS - Warehouse Materials"
+  },
+  "reconcile": {
+    "_comment": "5200 is not reliably contact-coded; per-client carrier cost comes from eHub. Reconcile the eHub carrier-cost total back to Xero 5200 and warn if they differ by more than this fraction.",
+    "carrierCostVs5200TolerancePct": 2
+  },
+  "alerts": {
+    "_comment": "Flag a client whose charged-back (eHub adjustments) exceeds this fraction of their carrier cost.",
+    "chargedBackVsCarrierCostPct": 3
+  },
+
+  "clients": [
+    {
+      "ehubAccountRef": "760-22344", "lob": "22344",
+      "name": "Joymode", "xeroContact": "Joymode", "mappingConfirmed": true,
+      "contractedRates": { "freightMarkupPct": 17, "perLabelFee": 0.20, "residentialSurcharge": 4.00 },
+      "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+    },
+    {
+      "ehubAccountRef": "760-22349", "lob": "22349",
+      "name": "Sol Science", "xeroContact": "Sol Science", "mappingConfirmed": true,
+      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+    },
+    {
+      "ehubAccountRef": "760-22352", "lob": "22352",
+      "name": "Two Leaves and a Bud, Inc.", "xeroContact": "Two Leaves and a Bud, Inc.", "mappingConfirmed": true,
+      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+    },
+    {
+      "ehubAccountRef": "760-22341", "lob": "22341",
+      "name": "Barbershop Books, Inc.", "xeroContact": "Barbershop Books, Inc.", "mappingConfirmed": false,
+      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+    },
+    {
+      "ehubAccountRef": "760-22351", "lob": "22351",
+      "name": "Total Hydration", "xeroContact": "Total Hydration", "mappingConfirmed": false,
+      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+    },
+    {
+      "ehubAccountRef": "760-22353", "lob": "22353",
+      "name": "Vitamin IQ", "xeroContact": "Vitamin IQ", "mappingConfirmed": false,
+      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+    },
+    {
+      "ehubAccountRef": "760-22354", "lob": "22354",
+      "name": "Primitive Scientific", "xeroContact": "Primitive Scientific", "mappingConfirmed": false,
+      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+    }
+  ]
+}
