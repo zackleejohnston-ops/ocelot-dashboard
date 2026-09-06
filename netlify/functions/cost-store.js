@@ -79,9 +79,9 @@ exports.handler = async function (event) {
       name: cfg ? cfg.name : ('Unmapped ' + a),
       mapped: !!cfg,
       mappingConfirmed: cfg ? !!cfg.mappingConfirmed : false,
-      carrierCost: round(c.carrierCost),
-      chargedBack: round(c.chargedBack),
-      refunds: round(c.refunds),
+      carrierCost: round(Math.abs(c.carrierCost)),
+      chargedBack: round(Math.abs(c.chargedBack)),
+      refunds: round(Math.abs(c.refunds)),
       shipments: c.shipments
     };
   }).sort((x, y) => y.carrierCost - x.carrierCost);
