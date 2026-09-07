@@ -329,7 +329,30 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 .mgn-table tr.tot td{border-top:2px solid var(--panel-edge);font-weight:800;border-bottom:none;}
 .mgn-neg{color:var(--red);}
 .mgn-note{font-size:11px;color:var(--txt-faint);margin-top:10px;line-height:1.5;}
+.pnl-wrap{background:var(--panel);border:1px solid var(--panel-edge-soft);border-radius:18px;padding:18px 22px;margin:20px 0;box-shadow:0 10px 30px rgba(0,0,0,.35);}
+.pnl-title{font-size:12px;font-weight:800;letter-spacing:.18em;color:var(--gold2);text-transform:uppercase;margin-bottom:14px;}
+.pnl-flow{display:flex;align-items:stretch;flex-wrap:wrap;gap:10px;}
+.pnl-step{flex:1 1 120px;min-width:120px;background:rgba(9,17,12,.4);border:1px solid var(--panel-edge-soft);border-radius:12px;padding:12px 14px;}
+.pnl-step .lbl{font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--txt-dim);text-transform:uppercase;}
+.pnl-step .val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:4px;color:var(--txt);}
+.pnl-step .sub{font-size:10px;color:var(--txt-faint);margin-top:2px;}
+.pnl-op{display:flex;align-items:center;font-size:20px;font-weight:800;color:var(--txt-faint);padding:0 2px;}
+.pnl-net{flex:1.3 1 150px;min-width:150px;border-width:2px;}
+.pnl-net.pos{border-color:var(--green-live);background:rgba(60,170,90,.10);}
+.pnl-net.neg{border-color:var(--red);background:rgba(200,60,60,.10);}
+.pnl-net .val.pos{color:var(--green-live);}
+.pnl-net .val.neg{color:var(--red);}
+.pnl-verdict{font-size:11px;font-weight:800;letter-spacing:.04em;margin-top:2px;}
+.pnl-verdict.pos{color:var(--green-live);}
+.pnl-verdict.neg{color:var(--red);}
+.pnl-note{font-size:11px;color:var(--txt-faint);margin-top:12px;line-height:1.5;}
+@media(max-width:640px){.pnl-op{display:none;}}
 </style>
+<div class="pnl-wrap">
+  <div class="pnl-title">Are we making money? <span id="pnlRange" style="color:var(--txt-faint);font-weight:600;letter-spacing:.04em;text-transform:none;"></span></div>
+  <div class="pnl-flow" id="pnlFlow"><div class="sbox" style="padding:8px 2px;">Loading…</div></div>
+  <div class="pnl-note" id="pnlNote"></div>
+</div>
 <div class="mgn-wrap">
   <div class="mgn-head">
     <div class="mgn-title">Client Margins</div>
@@ -353,9 +376,31 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 function m$(n){ n=Number(n)||0; var neg=n<0; var s='$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0}); return neg?'-'+s:s; }
+// Company P&L strip — the "are we making money?" glance, straight from Xero's own subtotals.
+function renderPnL(rev,s,e){
+  var flow=document.getElementById('pnlFlow'), note=document.getElementById('pnlNote'), rng=document.getElementById('pnlRange');
+  rng.textContent=(s&&e)?'· '+s+' to '+e:'';
+  var p=rev&&rev.pnlSummary;
+  if(!p||p.revenue==null||p.netIncome==null){
+    flow.innerHTML='<div class="sbox" style="padding:8px 2px;">P&amp;L unavailable'+(rev&&rev.pnlError?' ('+rev.pnlError+')':((rev&&rev.connected===false)?' — Xero not connected':''))+'.</div>';
+    note.textContent=''; return;
+  }
+  var revv=p.revenue||0, cos=p.costOfSales||0, gp=(p.grossProfit!=null?p.grossProfit:revv-cos), net=p.netIncome||0;
+  var overhead=gp-net, gpPct=revv?gp/revv*100:0, netPct=revv?net/revv*100:0, pos=net>=0;
+  function step(lbl,val,sub){ return '<div class="pnl-step"><div class="lbl">'+lbl+'</div><div class="val">'+m$(val)+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>'; }
+  function op(sym){ return '<div class="pnl-op">'+sym+'</div>'; }
+  flow.innerHTML=
+     step('Revenue',revv,'what clients were billed')
+    +op('&minus;')+step('Direct cost',cos,'freight + materials')
+    +op('=')+step('Gross profit',gp,gpPct.toFixed(0)+'% of revenue')
+    +op('&minus;')+step('Overhead &amp; other',overhead,'payroll, rent, everything else')
+    +op('=')+'<div class="pnl-step pnl-net '+(pos?'pos':'neg')+'"><div class="lbl">Net income</div>'
+      +'<div class="val '+(pos?'pos':'neg')+'">'+m$(net)+'</div>'
+      +'<div class="pnl-verdict '+(pos?'pos':'neg')+'">'+(pos?'✓ profitable':'✗ operating at a loss')+' ('+netPct.toFixed(0)+'%)</div></div>';
+  note.innerHTML='Straight from your Xero books for this range — every expense included (payroll, rent, equipment, software, insurance). This is the company total; the table below shows which clients drive it (before overhead).';
+}
 function loadMargins(){
   var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
-  try{ localStorage.setItem('mgnStart',s); localStorage.setItem('mgnEnd',e); }catch(_){}   // remember this range across refreshes
   document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="sbox">Loading…</td></tr>';
   document.getElementById('mgnAlert').textContent='Loading…';
   Promise.all([
@@ -364,6 +409,7 @@ function loadMargins(){
     fetch('/.netlify/functions/xero-revenue?start='+s+'&end='+e).then(function(r){return r.json();})
   ]).then(function(res){
     var cfg=res[0], cost=res[1], rev=res[2];
+    renderPnL(rev,s,e);
     var costByAcct={}; (cost.clients||[]).forEach(function(c){costByAcct[c.account]=c;});
     var revByContact={}; (rev.clients||[]).forEach(function(c){revByContact[c.contact]=c;});
     var mkTol=(cfg.compliance&&cfg.compliance.freightMarkupUnderTolerancePts!=null)?cfg.compliance.freightMarkupUnderTolerancePts:2;
@@ -424,6 +470,7 @@ function loadMargins(){
   }).catch(function(err){
     document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="err">'+(err&&err.message||err)+'</td></tr>';
     document.getElementById('mgnAlert').textContent='Error loading margins.';
+    document.getElementById('pnlFlow').innerHTML='<div class="err" style="padding:8px 2px;">'+(err&&err.message||err)+'</div>';
   });
 }
 // Parse the eHub DETAILED export in-browser and store per-day/per-client aggregates
@@ -466,13 +513,13 @@ function ingestCost(file){
     error:function(e){ st.textContent='Parse error: '+(e&&e.message||e); }
   });
 }
-// Date default: remember the last range picked; on first-ever load show a live 90-day
-// window ending today (not the old hardcoded 7-1..9-1 validation window).
+// Date default: last 7 days ending today, matching the orders table. (You can still
+// widen the range by hand and hit Update for a longer look.)
 function mgnYmd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function initMgnDates(){
-  var s,e; try{ s=localStorage.getItem('mgnStart'); e=localStorage.getItem('mgnEnd'); }catch(_){}
-  if(!s||!e){ var today=new Date(), start=new Date(); start.setDate(start.getDate()-90); s=mgnYmd(start); e=mgnYmd(today); }
-  document.getElementById('mgnStart').value=s; document.getElementById('mgnEnd').value=e;
+  var today=new Date(), start=new Date(); start.setDate(start.getDate()-6);   // 7 days inclusive
+  document.getElementById('mgnStart').value=mgnYmd(start);
+  document.getElementById('mgnEnd').value=mgnYmd(today);
 }
 initMgnDates();
 loadMargins();

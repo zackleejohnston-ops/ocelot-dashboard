@@ -122,7 +122,7 @@ exports.handler = async function (event) {
   const totals = clients.reduce((t, c) => { t.freightBilled += c.freightBilled; t.otherBilled += c.otherBilled; t.totalBilled += c.totalBilled; return t; }, { freightBilled: 0, otherBilled: 0, totalBilled: 0 });
 
   // P&L cost accounts (for the eHub-vs-5200 reconciliation) — non-fatal.
-  let costAccounts = null, pnlNames = null, pnlError = null;
+  let costAccounts = null, pnlNames = null, pnlError = null, pnlSummary = null;
   try {
     const flat = await pullPnL(token, tenantId, start, end);
     pnlNames = Object.keys(flat);
@@ -131,6 +131,15 @@ exports.handler = async function (event) {
       const nm = clientsConfig.costAccounts[code];
       costAccounts[code] = { name: nm, amount: (nm in flat) ? round(flat[nm]) : null };
     });
+    // Company-level P&L summary straight from Xero's own subtotals (exact, from the books).
+    // Names vary slightly by Xero layout, so try a few known variants for each line.
+    const pick = names => { for (const n of names) { if (n in flat) return round(flat[n]); } return null; };
+    pnlSummary = {
+      revenue:     pick(['Total Revenue', 'Total Income', 'Total Trading Income']),
+      costOfSales: pick(['Total Cost of Sales', 'Total Cost of Goods Sold']),
+      grossProfit: pick(['Gross Profit']),
+      netIncome:   pick(['Net Income', 'Net Income  / (Loss) before Tax', 'Net Income / (Loss) before Tax', 'Net Profit', 'Net Profit / (Loss)'])
+    };
   } catch (e) { pnlError = String(e && e.message); }
 
   return resp(200, {
@@ -140,6 +149,7 @@ exports.handler = async function (event) {
     totals: { freightBilled: round(totals.freightBilled), otherBilled: round(totals.otherBilled), totalBilled: round(totals.totalBilled) },
     accountCodesSeen: acctSeen,
     costAccounts: costAccounts,
+    pnlSummary: pnlSummary,
     pnlNames: pnlNames,
     pnlError: pnlError,
     referencesSample: Array.from(refs).slice(0, 25),
