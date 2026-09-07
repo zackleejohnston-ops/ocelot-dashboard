@@ -336,6 +336,9 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
     <div class="mgn-range">
       <input type="date" id="mgnStart" value="2026-07-01"/><span>to</span><input type="date" id="mgnEnd" value="2026-09-01"/>
       <button class="mgn-btn" onclick="loadMargins()">Update</button>
+      <button class="mgn-btn" onclick="document.getElementById('costFile').click()" title="Upload the eHub Detailed transactions export to refresh cost + charge-backs">&#8593; Load cost CSV</button>
+      <input type="file" id="costFile" accept=".csv" style="display:none" onchange="ingestCost(this.files&&this.files[0]);this.value='';"/>
+      <span id="costStatus" style="font-size:11px;color:var(--txt-dim);"></span>
     </div>
   </div>
   <div class="mgn-alert" id="mgnAlert">Loading…</div>
@@ -347,6 +350,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
   </div>
   <div class="mgn-note" id="mgnNote"></div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script>
 function m$(n){ n=Number(n)||0; var neg=n<0; var s='$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0}); return neg?'-'+s:s; }
 function loadMargins(){
@@ -392,6 +396,46 @@ function loadMargins(){
   }).catch(function(err){
     document.getElementById('mgnBody').innerHTML='<tr><td colspan="8" class="err">'+(err&&err.message||err)+'</td></tr>';
     document.getElementById('mgnAlert').textContent='Error loading margins.';
+  });
+}
+// Parse the eHub DETAILED export in-browser and store per-day/per-client aggregates
+// (signed sums — same math validated to the penny). Heavy CSV never hits a function.
+function ingestCost(file){
+  if(!file) return;
+  var st=document.getElementById('costStatus');
+  if(typeof Papa==='undefined'){ st.textContent='CSV parser still loading — try again in a moment.'; return; }
+  st.textContent='Parsing '+file.name+'…';
+  Papa.parse(file,{header:true,skipEmptyLines:true,
+    complete:function(res){
+      try{
+        var rows=res.data||[];
+        if(!rows.length || !('Account Reference' in rows[0])){
+          st.innerHTML='<span style="color:var(--orange)">⚠ Use the <b>Detailed</b> export (tick “Include Shipment Detail”). This file has no Account Reference column.</span>'; return;
+        }
+        var TYPE={'Shipment Purchase':'purchase','Shipment Adjustment':'adjustment','Shipment Refund':'refund'};
+        var days={};
+        rows.forEach(function(r){
+          var t=TYPE[r['Transaction Type']]; if(!t) return;
+          var acct=(r['Account Reference']||'').trim()||'(blank)';
+          var d=(r['Transaction Date']||'').slice(0,10).split('/'); if(d.length!==3) return;
+          var iso=d[2]+'-'+d[0]+'-'+d[1];
+          var amt=parseFloat(r['Amount']); if(isNaN(amt)) return;
+          if(!days[iso]) days[iso]={};
+          if(!days[iso][acct]) days[iso][acct]={purchase:0,adjustment:0,refund:0,shipments:0};
+          days[iso][acct][t]+=amt;                       // signed
+          if(t==='purchase') days[iso][acct].shipments++;
+        });
+        Object.keys(days).forEach(function(d){ Object.keys(days[d]).forEach(function(a){ var c=days[d][a]; c.purchase=Math.round(c.purchase*100)/100; c.adjustment=Math.round(c.adjustment*100)/100; c.refund=Math.round(c.refund*100)/100; }); });
+        var nDays=Object.keys(days).length;
+        if(!nDays){ st.textContent='No purchase/adjustment/refund rows found in that file.'; return; }
+        st.textContent='Uploading '+nDays+' days…';
+        fetch('/.netlify/functions/cost-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({days:days,sourceFile:file.name})})
+          .then(function(r){return r.json();})
+          .then(function(j){ if(j.ok){ st.innerHTML='<span style="color:var(--green-live)">✓ Cost data updated through '+(j.dataThroughDate||'?')+' ('+(j.days||nDays)+' days). Refreshing…</span>'; loadMargins(); } else { st.textContent='Store error: '+(j.error||JSON.stringify(j)); } })
+          .catch(function(e){ st.textContent='Upload failed: '+(e&&e.message||e); });
+      }catch(e){ st.textContent='Parse error: '+(e&&e.message||e); }
+    },
+    error:function(e){ st.textContent='Parse error: '+(e&&e.message||e); }
   });
 }
 loadMargins();
