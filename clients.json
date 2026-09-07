@@ -1,5 +1,5 @@
 {
-  "_comment": "Ocelot client + accounting config. Single source of truth for: eHub Account Reference -> Xero contact mapping, revenue/cost account codes, and (future) per-client contracted rates + payroll/overhead allocation. Edit this, not code. Any eHub Account Reference NOT listed here is surfaced on-screen as 'unmapped', never silently dropped.",
+  "_comment": "Ocelot client + accounting config. Single source of truth for: eHub Account Reference -> Xero contact mapping, revenue/cost account codes, per-client contracted rates, and (future) payroll/overhead allocation. Edit this, not code. Any eHub Account Reference NOT listed here is surfaced on-screen as 'unmapped', never silently dropped.",
 
   "revenueAccounts": {
     "4200": "Freight Revenue - Outbound",
@@ -27,43 +27,115 @@
     "_comment": "Flag a client whose charged-back (eHub adjustments) exceeds this fraction of their carrier cost.",
     "chargedBackVsCarrierCostPct": 3
   },
+  "compliance": {
+    "_comment": "Freight compliance = effective outbound freight markup (freightBilled/carrierCost - 1) vs contracted freightMarkupPct. Only UNDER-billing is a violation: per-label, residential and intl surcharges ride ON TOP of the base markup, so a compliant client's effective markup is >= contract. Flag only when effective falls this many percentage points BELOW contract (avoids false-flagging the fee headroom).",
+    "freightMarkupUnderTolerancePts": 2
+  },
 
   "clients": [
     {
       "ehubAccountRef": "760-22344", "lob": "22344",
       "name": "Joymode", "xeroContact": "Joymode", "mappingConfirmed": true,
-      "contractedRates": { "freightMarkupPct": 17, "perLabelFee": 0.20, "residentialSurcharge": 4.00 },
+      "contractedRates": {
+        "ratesConfirmed": true,
+        "freightMarkupPct": 17, "labelFee": 0.20, "residentialSurcharge": 4.00,
+        "fees": {}
+      },
       "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22349", "lob": "22349",
       "name": "Sol Science", "xeroContact": "Sol Science", "mappingConfirmed": true,
-      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+      "contractedRates": {
+        "ratesConfirmed": true,
+        "freightMarkupPct": 35, "labelFee": 0.30,
+        "fees": {
+          "smallParcelOrderFee": 1.70, "pickFeePerItem": 0.30,
+          "kittingHourly": 65.00, "returnFee": 10.00, "noPackingSlipPerPO": 20.00
+        }
+      },
+      "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22352", "lob": "22352",
       "name": "Two Leaves and a Bud, Inc.", "xeroContact": "Two Leaves and a Bud, Inc.", "mappingConfirmed": true,
-      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+      "contractedRates": {
+        "ratesConfirmed": true,
+        "freightMarkupPct": 40, "labelFee": 0.30,
+        "fees": {
+          "accountMgmtWeekly": 2500.00, "storeConnectionWeekly": 12.50,
+          "palletStorageWeekly": 5.00, "shelfStorageWeekly": 1.13,
+          "smallParcelOrderFeeWeekly": 3.30, "smallParcelB2BWeekly": 5.10,
+          "thirdPartyOrderFeeWeekly": 3.30, "thirdPartyB2BWeekly": 5.10,
+          "pickFeePerItem": 0.30, "kittingHourly": 65.00, "sampleRoomHourly": 65.00,
+          "returnFee": 15.00, "noPackingSlipPerPO": 20.00, "noAsnFeePerPO": 100.00
+        }
+      },
+      "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22341", "lob": "22341",
       "name": "Barbershop Books, Inc.", "xeroContact": "Barbershop Books, Inc.", "mappingConfirmed": true,
-      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+      "contractedRates": {
+        "ratesConfirmed": true,
+        "freightMarkupPct": 40, "labelFee": 0.30,
+        "fees": {
+          "palletStorageWeekly": 5.00, "shelfStorageWeekly": 1.20,
+          "smallParcelOrderFeeWeekly": 3.30, "smallParcelB2BWeekly": 5.10,
+          "ltlPerPallet": 20.00, "kittingHourly": 65.00,
+          "returnFee": 15.00, "noPackingSlipPerPO": 20.00
+        }
+      },
+      "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22351", "lob": "22351",
       "name": "Total Hydration", "xeroContact": "Total Hydration", "mappingConfirmed": true,
-      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+      "contractedRates": {
+        "ratesConfirmed": true,
+        "freightMarkupPct": 40, "labelFee": 0.30,
+        "fees": {
+          "accountMgmtWeekly": 87.50, "storeConnectionWeekly": 12.50,
+          "palletStorageWeekly": 5.00, "shelfStorageWeekly": 1.20,
+          "smallParcelOrderFeeWeekly": 3.30, "smallParcelB2BWeekly": 5.10,
+          "pickFeePerItem": 0.30, "ltlPerPallet": 35.00, "kittingHourly": 65.00,
+          "returnFee": 15.00, "noPackingSlipPerPO": 20.00
+        }
+      },
+      "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22353", "lob": "22353",
       "name": "Vitamin IQ", "xeroContact": "Vitamin IQ", "mappingConfirmed": true,
-      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+      "contractedRates": {
+        "ratesConfirmed": true,
+        "freightMarkupPct": 40, "labelFee": 0.30,
+        "fees": {
+          "accountMgmtWeekly": 87.50, "storeConnectionWeekly": 12.50,
+          "palletStorageWeekly": 5.00, "shelfStorageWeekly": 1.13,
+          "smallParcelOrderFeeWeekly": 2.55, "smallParcelB2BWeekly": 4.10,
+          "pickFeePerItem": 0.27, "ltlPerPallet": 35.00, "kittingHourly": 65.00,
+          "returnFee": 15.00, "noPackingSlipPerPO": 20.00,
+          "noAppointmentPerPO": 50.00, "noAsnFeePerPO": 100.00
+        }
+      },
+      "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22354", "lob": "22354",
       "name": "Primitive Scientific", "xeroContact": "Primitive Scientific", "mappingConfirmed": true,
-      "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
+      "contractedRates": {
+        "ratesConfirmed": true,
+        "freightMarkupPct": 40, "labelFee": 0.30,
+        "fees": {
+          "accountMgmtWeekly": 87.50, "storeConnectionWeekly": 12.50,
+          "palletStorageWeekly": 5.00, "shelfStorageWeekly": 1.20,
+          "smallParcelOrderFeeWeekly": 3.30, "smallParcelB2BWeekly": 5.10,
+          "pickFeePerItem": 0.30, "ltlPerPallet": 35.00, "kittingHourly": 65.00,
+          "returnFee": 15.00, "noPackingSlipPerPO": 20.00
+        }
+      },
+      "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     }
   ]
 }

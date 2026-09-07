@@ -344,8 +344,8 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
   <div class="mgn-alert" id="mgnAlert">Loading…</div>
   <div class="mgn-tablewrap">
     <table class="mgn-table">
-      <thead><tr><th>Client</th><th>Total billed</th><th>Freight billed</th><th>Other billed</th><th>Carrier cost</th><th>Charged back</th><th>Margin</th><th>Margin %</th></tr></thead>
-      <tbody id="mgnBody"><tr><td colspan="8" class="sbox">Loading…</td></tr></tbody>
+      <thead><tr><th>Client</th><th>Total billed</th><th>Freight billed</th><th>Other billed</th><th>Carrier cost</th><th>Freight markup<br>eff / contract</th><th>Charged back</th><th>Margin</th><th>Margin %</th></tr></thead>
+      <tbody id="mgnBody"><tr><td colspan="9" class="sbox">Loading…</td></tr></tbody>
     </table>
   </div>
   <div class="mgn-note" id="mgnNote"></div>
@@ -355,7 +355,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 function m$(n){ n=Number(n)||0; var neg=n<0; var s='$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0}); return neg?'-'+s:s; }
 function loadMargins(){
   var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
-  document.getElementById('mgnBody').innerHTML='<tr><td colspan="8" class="sbox">Loading…</td></tr>';
+  document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="sbox">Loading…</td></tr>';
   document.getElementById('mgnAlert').textContent='Loading…';
   Promise.all([
     fetch('/clients.json').then(function(r){return r.json();}),
@@ -365,27 +365,47 @@ function loadMargins(){
     var cfg=res[0], cost=res[1], rev=res[2];
     var costByAcct={}; (cost.clients||[]).forEach(function(c){costByAcct[c.account]=c;});
     var revByContact={}; (rev.clients||[]).forEach(function(c){revByContact[c.contact]=c;});
+    var mkTol=(cfg.compliance&&cfg.compliance.freightMarkupUnderTolerancePts!=null)?cfg.compliance.freightMarkupUnderTolerancePts:2;
     var rows=(cfg.clients||[]).map(function(cl){
       var c=costByAcct[cl.ehubAccountRef]||{}, r=revByContact[cl.xeroContact]||{};
-      var totalBilled=r.totalBilled||0, carrier=c.carrierCost||0, back=c.chargedBack||0;
+      var totalBilled=r.totalBilled||0, carrier=c.carrierCost||0, back=c.chargedBack||0, freight=r.freightBilled||0;
       var margin=totalBilled-carrier-back;
-      return {name:cl.name, confirmed:cl.mappingConfirmed, totalBilled:totalBilled, freight:r.freightBilled||0, other:r.otherBilled||0, carrier:carrier, back:back, margin:margin, mpct:totalBilled?margin/totalBilled*100:0, backRate:carrier?back/carrier*100:0};
+      // Freight compliance: effective outbound markup vs contract. Only UNDER-billing violates —
+      // per-label/residential/intl surcharges ride on top, so a compliant client sits >= contract.
+      var cr=cl.contractedRates||{};
+      var contractPct=(typeof cr.freightMarkupPct==='number')?cr.freightMarkupPct:null;
+      var effPct=(carrier>0)?(freight/carrier-1)*100:null;
+      var underContract=(effPct!=null&&contractPct!=null)?(effPct<contractPct-mkTol):false;
+      var shortfall=(underContract)?carrier*(1+contractPct/100)-freight:0;
+      return {name:cl.name, confirmed:cl.mappingConfirmed, totalBilled:totalBilled, freight:freight, other:r.otherBilled||0, carrier:carrier, back:back, margin:margin, mpct:totalBilled?margin/totalBilled*100:0, backRate:carrier?back/carrier*100:0, contractPct:contractPct, effPct:effPct, underContract:underContract, shortfall:shortfall};
     }).filter(function(x){ return x.totalBilled||x.carrier||x.back; });
     rows.sort(function(a,b){return a.margin-b.margin;});
     var T=rows.reduce(function(t,x){t.totalBilled+=x.totalBilled;t.freight+=x.freight;t.other+=x.other;t.carrier+=x.carrier;t.back+=x.back;t.margin+=x.margin;return t;},{totalBilled:0,freight:0,other:0,carrier:0,back:0,margin:0});
     var body=rows.map(function(x){
       var neg=x.margin<0?' class="mgn-neg"':'';
-      return '<tr><td class="cn">'+x.name+(x.confirmed===false?' *':'')+(x.backRate>3?' ⚠':'')+'</td>'
+      var mk=(x.effPct==null||x.contractPct==null)?'<span style="color:var(--txt-faint)">—</span>'
+        :'<span'+(x.underContract?' class="mgn-neg"':'')+'>'+x.effPct.toFixed(0)+'%</span> <span style="color:var(--txt-faint)">/ '+x.contractPct+'%</span>';
+      return '<tr><td class="cn">'+x.name+(x.confirmed===false?' *':'')+(x.backRate>3?' ⚠':'')+(x.underContract?' 🔻':'')+'</td>'
         +'<td>'+m$(x.totalBilled)+'</td><td>'+m$(x.freight)+'</td><td>'+m$(x.other)+'</td>'
-        +'<td>'+m$(x.carrier)+'</td><td>'+m$(x.back)+'</td>'
+        +'<td>'+m$(x.carrier)+'</td><td>'+mk+'</td><td>'+m$(x.back)+'</td>'
         +'<td'+neg+'>'+m$(x.margin)+'</td><td'+neg+'>'+x.mpct.toFixed(1)+'%</td></tr>';
     }).join('');
     var mpctT=T.totalBilled?T.margin/T.totalBilled*100:0;
-    body+='<tr class="tot"><td>All clients</td><td>'+m$(T.totalBilled)+'</td><td>'+m$(T.freight)+'</td><td>'+m$(T.other)+'</td><td>'+m$(T.carrier)+'</td><td>'+m$(T.back)+'</td><td>'+m$(T.margin)+'</td><td>'+mpctT.toFixed(1)+'%</td></tr>';
+    var effT=T.carrier?((T.freight/T.carrier-1)*100).toFixed(0)+'%':'—';
+    body+='<tr class="tot"><td>All clients</td><td>'+m$(T.totalBilled)+'</td><td>'+m$(T.freight)+'</td><td>'+m$(T.other)+'</td><td>'+m$(T.carrier)+'</td><td>'+effT+'</td><td>'+m$(T.back)+'</td><td>'+m$(T.margin)+'</td><td>'+mpctT.toFixed(1)+'%</td></tr>';
     document.getElementById('mgnBody').innerHTML=body;
     var flagged=rows.filter(function(x){return x.backRate>3;}).map(function(x){return x.name+' ('+x.backRate.toFixed(1)+'%)';});
     var al='<span class="big">'+m$(T.back)+'</span> charged back this period &nbsp;·&nbsp; <span class="big">$0.00</span> rebilled to clients';
     if(flagged.length) al+='<br><span class="flag">⚠ over 3% back-charge:</span> '+flagged.join(', ');
+    // Freight-markup compliance: clients billing outbound freight BELOW their contracted upcharge.
+    var under=rows.filter(function(x){return x.underContract;});
+    if(under.length){
+      al+='<br><span class="flag">🔻 under contracted freight markup:</span> '+under.map(function(x){
+        return x.name+' (billing '+x.effPct.toFixed(0)+'% vs '+x.contractPct+'% contract, ~'+m$(x.shortfall)+' under)';
+      }).join('; ');
+    } else if(rows.some(function(x){return x.contractPct!=null&&x.effPct!=null;})){
+      al+='<br><span style="color:var(--green-live)">✓ all clients billing at or above contracted freight markup.</span>';
+    }
     // Freight-cost reconciliation: eHub (carrier cost + charge-backs) vs Xero account 5200.
     var a5200=(rev.costAccounts&&rev.costAccounts['5200']&&rev.costAccounts['5200'].amount);
     if(a5200!=null){
@@ -398,9 +418,10 @@ function loadMargins(){
     notes.push('Revenue: live from Xero. Carrier cost &amp; charge-backs: eHub export'+(cost.dataThroughDate?' through '+cost.dataThroughDate:'')+'.');
     if(cost.unmappedAccounts&&cost.unmappedAccounts.length) notes.push('⚠ Unmapped eHub accounts: '+cost.unmappedAccounts.join(', ')+'.');
     if(rows.some(function(x){return x.confirmed===false;})) notes.push('* client mapping unconfirmed.');
+    notes.push('Freight markup = effective outbound upcharge (freight billed ÷ carrier cost − 1) vs contract. Per-label, residential &amp; intl surcharges ride on top, so a compliant client sits at or above contract; 🔻 flags billing below the contracted floor.');
     document.getElementById('mgnNote').innerHTML=notes.join(' ');
   }).catch(function(err){
-    document.getElementById('mgnBody').innerHTML='<tr><td colspan="8" class="err">'+(err&&err.message||err)+'</td></tr>';
+    document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="err">'+(err&&err.message||err)+'</td></tr>';
     document.getElementById('mgnAlert').textContent='Error loading margins.';
   });
 }
