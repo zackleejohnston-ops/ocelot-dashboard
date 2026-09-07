@@ -35,17 +35,36 @@ exports.handler = async function (event) {
     let body;
     try { body = JSON.parse(event.body || '{}'); } catch (e) { return resp(400, { error: 'invalid JSON body' }); }
     if (!body.days || typeof body.days !== 'object') return resp(400, { error: 'missing days{}' });
-    const dates = Object.keys(body.days).sort();
-    const record = {
-      days: body.days,
-      sourceFile: body.sourceFile || null,
-      dataThroughDate: dates.length ? dates[dates.length - 1] : null,
-      dataFromDate: dates.length ? dates[0] : null,
-      updatedAt: new Date().toISOString()
-    };
+    const mode = body.mode === 'merge' ? 'merge' : 'replace';
+
+    let record;
+    if (mode === 'merge') {
+      // Partial per-field update — the nightly auto sync writes purchases/adjustments for recent
+      // days without wiping the CSV-seeded history (or the other source's fields).
+      try { record = await store.get(KEY, { type: 'json' }); } catch (e) {}
+      if (!record || !record.days) record = { days: {} };
+      const inc = body.days;
+      Object.keys(inc).forEach(function (date) {
+        record.days[date] = record.days[date] || {};
+        Object.keys(inc[date]).forEach(function (acct) {
+          const cur = record.days[date][acct] || { purchase: 0, adjustment: 0, refund: 0, shipments: 0 };
+          const add = inc[date][acct];
+          ['purchase', 'adjustment', 'refund', 'shipments'].forEach(function (f) { if (f in add) cur[f] = add[f]; });
+          record.days[date][acct] = cur;
+        });
+      });
+    } else {
+      record = { days: body.days };   // full replace (CSV upload)
+    }
+
+    const dates = Object.keys(record.days).sort();
+    record.sourceFile = body.sourceFile || record.sourceFile || null;
+    record.dataFromDate = dates.length ? dates[0] : null;
+    record.dataThroughDate = dates.length ? dates[dates.length - 1] : null;
+    record.updatedAt = new Date().toISOString();
     try { await store.setJSON(KEY, record); }
     catch (e) { return resp(500, { error: 'blob write failed: ' + (e && e.message) }); }
-    return resp(200, { ok: true, days: dates.length, dataFromDate: record.dataFromDate, dataThroughDate: record.dataThroughDate });
+    return resp(200, { ok: true, mode: mode, days: dates.length, dataFromDate: record.dataFromDate, dataThroughDate: record.dataThroughDate });
   }
 
   // GET (default): aggregate over [start, end] inclusive.
