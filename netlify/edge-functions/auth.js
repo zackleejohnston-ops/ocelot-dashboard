@@ -10,6 +10,12 @@ export default async (request, context) => {
   const pass = Deno.env.get("DASH_PASS");
   if (!pass) return; // not configured yet -> stay open (same as today)
 
+  // Exempt the Xero OAuth-flow endpoints: Xero redirects the browser to xero-callback
+  // with no basic-auth header, and xero-auth just bounces to Xero. Neither returns
+  // financial data. Everything else (dashboard + data functions) stays gated.
+  const path = new URL(request.url).pathname;
+  if (path === "/.netlify/functions/xero-callback" || path === "/.netlify/functions/xero-auth") return;
+
   const user = Deno.env.get("DASH_USER") || "ocelot";
   const header = request.headers.get("authorization") || "";
   if (header.startsWith("Basic ")) {
