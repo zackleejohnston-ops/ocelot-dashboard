@@ -3,8 +3,11 @@
 ## What this is
 A single-page internal ops dashboard for Ocelot Logistics, a boutique 3PL in Perrysburg, Ohio.
 Deployed on Netlify. Audience is Richard, the owner.
-**Live URL:** https://super-dodol-d17ae4.netlify.app/ (functions at `/.netlify/functions/{orders,ehub,billing,stats,rollup-background}`).
-Fetch these directly to verify changes against real data before/after a deploy.
+**Live URL:** https://super-dodol-d17ae4.netlify.app/ — **password-gated** since 2026-09-07 (HTTP basic
+auth via `netlify/edge-functions/auth.js`; user `ocelot` or env `DASH_USER`, password env `DASH_PASS`).
+Functions: `/.netlify/functions/{orders,ehub,billing,stats,rollup-background,cron-rollup,cost-store,xero-auth,xero-callback,xero-status,xero-revenue}`.
+Verifying live now needs creds (`curl -u ocelot:<pass> ...`), EXCEPT `xero-auth`/`xero-callback` which
+the gate exempts (OAuth redirect can't carry a browser auth header).
 **Site ID:** `d542819e-69b9-4956-ab81-84f3bb87465f`. Blobs needs env var `BLOBS_TOKEN` (a Netlify PAT,
 set ~4yr expiry) on the site — this older site doesn't auto-provision Blobs. Site ID is hardcoded as a
 fallback in the functions.
@@ -154,6 +157,46 @@ all deliberately removed. Don't add them back without being asked.
 The hardcoded API key fallbacks in the Netlify functions (`IP_KEY`, `EH_KEY`) are a **known, accepted
 risk**. Removing them has broken the live site before. Do not remove or "fix" them, and don't flag them
 each session. There's a TODO comment in `ehub.js` about it — it's acknowledged, not forgotten.
+
+## Client profitability / margins (added 2026-09-07)
+Per-client margin table at the bottom of the dashboard: Total billed · Freight billed · Other billed ·
+Carrier cost · Charged back · Margin · Margin %, sorted by margin ascending, totals row, date-range
+picker, plus an alert panel (total charged back / rebilled=$0.00 / clients over 3% back-charge flagged).
+Margin = Total billed − Carrier cost − Charged back (payroll/overhead deliberately excluded — later phase).
+
+**Pieces:**
+- `clients.json` — config: eHub `Account Reference` ("760-22344") → Xero contact + name (4 unconfirmed,
+  flagged `*`); revenue/cost account codes; alert & reconcile thresholds; empty slots for contracted
+  rates + payroll/overhead. Served statically; the browser reads it to join cost↔revenue.
+- **Cost (eHub)** → `cost-store.js`: stores/serves per-day/per-client aggregates in Blobs
+  (`cost/aggregates`). POST compact aggregates, GET `?start&end`. Source = eHub **Detailed** transactions
+  export (Finance→Transactions, meter `0ZS511`; has `Account Reference` + `Order Number` + `Weight`; the
+  plain export lacks account/order). Export is **emailed** (async), Mountain-Time dates.
+- **Revenue (Xero)** → `xero-revenue.js`: live. Refreshes token, pulls ACCREC invoices w/ line items,
+  aggregates by contact + account code.
+- **Xero OAuth** → `xero-auth` (consent redirect) · `xero-callback` (stores refresh token+tenantId in
+  Blobs `xero/tokens`) · `xero-status` (connection check, no secrets). Env: `XERO_CLIENT_ID`,
+  `XERO_CLIENT_SECRET`. Tenant "Ocelot Logistics, Inc." (`5611ef5f-86d7-4dc1-94c2-68f502da115d`).
+- **Access gate** → `netlify/edge-functions/auth.js` (basic auth over `/*`, dormant until `DASH_PASS`).
+
+**Hard-won data rules (all 8 validation numbers tie out — don't regress these):**
+- Date window is **inclusive of both endpoints, Mountain Time** ("Jul 1 to Sep 1" includes Sep 1).
+- eHub adjustments **net** (credits offset debits) → charged-back = abs(signed sum), not sum of abs.
+- Account **4210** (inbound freight rev) counts in Total/Other billed; **Freight billed = 4200 only**.
+- **Xero granular scopes required** (apps created ≥2026-03-02 reject broad scopes with `invalid_scope`):
+  `offline_access accounting.invoices.read accounting.contacts.read accounting.reports.profitandloss.read`.
+- Xero **rotates the refresh token every use** — always store the new one back (xero-revenue does).
+
+**Freshness:** revenue = live per load; carrier cost + charge-backs = from the stored eHub export
+(re-uploaded periodically). Charge-backs lag 6–34 days by nature.
+
+**TODO / next phases:** (A, chosen) auto-refresh carrier cost via the nightly rollup so it's not a
+manual export — validate it reconciles to $52,990.53 (rollup keys off shipDate vs export's txn date).
+(2) a CSV-upload control so the eHub export self-serves into `cost-store`. (3) the ±2% eHub-vs-Xero-5200
+cost reconciliation (P&L scope is granted). (4) confirm the 4 unconfirmed client mappings. (5) payroll/
+overhead allocation + per-client contracted-rate compliance (slots already in `clients.json`).
+Note: gating `/*` would break server-to-server calls — `cron-rollup` sends its own basic-auth header,
+and OAuth endpoints are exempt. Keep that in mind for any new internal function calls.
 
 ## Keep this file current
 Update CLAUDE.md when layout, data sources, or decisions change, so it doesn't go stale.
