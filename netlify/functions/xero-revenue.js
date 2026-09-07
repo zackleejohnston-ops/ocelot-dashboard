@@ -53,6 +53,27 @@ async function pullInvoices(token, tenantId, start, end) {
   return all;
 }
 
+// Pull the P&L report and flatten account-name -> amount (for the eHub-vs-5200 cost reconciliation).
+async function pullPnL(token, tenantId, start, end) {
+  const url = 'https://api.xero.com/api.xro/2.0/Reports/ProfitAndLoss?fromDate=' + start + '&toDate=' + end;
+  const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token, 'Xero-tenant-id': tenantId, 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error('PnL HTTP ' + r.status + ': ' + (await r.text()).slice(0, 160));
+  const j = await r.json();
+  const flat = {};
+  const top = (j.Reports && j.Reports[0] && j.Reports[0].Rows) || [];
+  (function walk(rows) {
+    rows.forEach(function (row) {
+      if (row.Rows) walk(row.Rows);
+      if (row.Cells && row.Cells.length >= 2) {
+        const name = String(row.Cells[0].Value || '').trim();
+        const amt = parseFloat(row.Cells[1].Value);
+        if (name && !isNaN(amt)) flat[name] = amt;
+      }
+    });
+  })(top);
+  return flat;
+}
+
 exports.handler = async function (event) {
   const qp = event.queryStringParameters || {};
   const start = qp.start || '2026-07-01', end = qp.end || '2026-09-01';
@@ -100,12 +121,27 @@ exports.handler = async function (event) {
 
   const totals = clients.reduce((t, c) => { t.freightBilled += c.freightBilled; t.otherBilled += c.otherBilled; t.totalBilled += c.totalBilled; return t; }, { freightBilled: 0, otherBilled: 0, totalBilled: 0 });
 
+  // P&L cost accounts (for the eHub-vs-5200 reconciliation) — non-fatal.
+  let costAccounts = null, pnlNames = null, pnlError = null;
+  try {
+    const flat = await pullPnL(token, tenantId, start, end);
+    pnlNames = Object.keys(flat);
+    costAccounts = {};
+    Object.keys(clientsConfig.costAccounts || {}).forEach(code => {
+      const nm = clientsConfig.costAccounts[code];
+      costAccounts[code] = { name: nm, amount: (nm in flat) ? round(flat[nm]) : null };
+    });
+  } catch (e) { pnlError = String(e && e.message); }
+
   return resp(200, {
     connected: true, start, end,
     invoiceCount: invoices.length,
     clients,
     totals: { freightBilled: round(totals.freightBilled), otherBilled: round(totals.otherBilled), totalBilled: round(totals.totalBilled) },
     accountCodesSeen: acctSeen,
+    costAccounts: costAccounts,
+    pnlNames: pnlNames,
+    pnlError: pnlError,
     referencesSample: Array.from(refs).slice(0, 25),
     invoices: compact.slice(0, 800)
   });
