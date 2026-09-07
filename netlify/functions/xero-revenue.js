@@ -53,7 +53,9 @@ async function pullInvoices(token, tenantId, start, end) {
   return all;
 }
 
-// Pull the P&L report and flatten account-name -> amount (for the eHub-vs-5200 cost reconciliation).
+// Pull the P&L report. Returns both a flat account-name->amount map (for the
+// eHub-vs-5200 reconciliation + summary) and the section structure (for the
+// on-screen "what's inside overhead" breakdown).
 async function pullPnL(token, tenantId, start, end) {
   const url = 'https://api.xero.com/api.xro/2.0/Reports/ProfitAndLoss?fromDate=' + start + '&toDate=' + end;
   const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token, 'Xero-tenant-id': tenantId, 'Accept': 'application/json' } });
@@ -61,6 +63,7 @@ async function pullPnL(token, tenantId, start, end) {
   const j = await r.json();
   const flat = {};
   const top = (j.Reports && j.Reports[0] && j.Reports[0].Rows) || [];
+  // Flat map (recursive) — unchanged behaviour for costAccounts/pnlSummary.
   (function walk(rows) {
     rows.forEach(function (row) {
       if (row.Rows) walk(row.Rows);
@@ -71,7 +74,25 @@ async function pullPnL(token, tenantId, start, end) {
       }
     });
   })(top);
-  return flat;
+  // Section structure: one entry per top-level P&L section (Income, Cost of Sales,
+  // Operating Expenses, …), each with its line items and its summary/subtotal rows.
+  const sections = [];
+  top.forEach(function (sec) {
+    if (!sec.Rows) return;              // skip the header row
+    const rows = [];
+    (function collect(rs) {
+      rs.forEach(function (row) {
+        if (row.Rows) collect(row.Rows);
+        if (row.Cells && row.Cells.length >= 2) {
+          const name = String(row.Cells[0].Value || '').trim();
+          const amt = parseFloat(row.Cells[1].Value);
+          if (name && !isNaN(amt)) rows.push({ name: name, amount: round(amt), summary: row.RowType === 'SummaryRow' });
+        }
+      });
+    })(sec.Rows);
+    if (rows.length) sections.push({ title: String(sec.Title || '').trim(), rows: rows });
+  });
+  return { flat: flat, sections: sections };
 }
 
 exports.handler = async function (event) {
@@ -122,9 +143,11 @@ exports.handler = async function (event) {
   const totals = clients.reduce((t, c) => { t.freightBilled += c.freightBilled; t.otherBilled += c.otherBilled; t.totalBilled += c.totalBilled; return t; }, { freightBilled: 0, otherBilled: 0, totalBilled: 0 });
 
   // P&L cost accounts (for the eHub-vs-5200 reconciliation) — non-fatal.
-  let costAccounts = null, pnlNames = null, pnlError = null, pnlSummary = null;
+  let costAccounts = null, pnlNames = null, pnlError = null, pnlSummary = null, pnlSections = null;
   try {
-    const flat = await pullPnL(token, tenantId, start, end);
+    const pnl = await pullPnL(token, tenantId, start, end);
+    const flat = pnl.flat;
+    pnlSections = pnl.sections;
     pnlNames = Object.keys(flat);
     costAccounts = {};
     Object.keys(clientsConfig.costAccounts || {}).forEach(code => {
@@ -150,6 +173,7 @@ exports.handler = async function (event) {
     accountCodesSeen: acctSeen,
     costAccounts: costAccounts,
     pnlSummary: pnlSummary,
+    pnlSections: pnlSections,
     pnlNames: pnlNames,
     pnlError: pnlError,
     referencesSample: Array.from(refs).slice(0, 25),
