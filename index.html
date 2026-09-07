@@ -355,6 +355,7 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 function m$(n){ n=Number(n)||0; var neg=n<0; var s='$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0}); return neg?'-'+s:s; }
 function loadMargins(){
   var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
+  try{ localStorage.setItem('mgnStart',s); localStorage.setItem('mgnEnd',e); }catch(_){}   // remember this range across refreshes
   document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="sbox">Loading…</td></tr>';
   document.getElementById('mgnAlert').textContent='Loading…';
   Promise.all([
@@ -465,6 +466,15 @@ function ingestCost(file){
     error:function(e){ st.textContent='Parse error: '+(e&&e.message||e); }
   });
 }
+// Date default: remember the last range picked; on first-ever load show a live 90-day
+// window ending today (not the old hardcoded 7-1..9-1 validation window).
+function mgnYmd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function initMgnDates(){
+  var s,e; try{ s=localStorage.getItem('mgnStart'); e=localStorage.getItem('mgnEnd'); }catch(_){}
+  if(!s||!e){ var today=new Date(), start=new Date(); start.setDate(start.getDate()-90); s=mgnYmd(start); e=mgnYmd(today); }
+  document.getElementById('mgnStart').value=s; document.getElementById('mgnEnd').value=e;
+}
+initMgnDates();
 loadMargins();
 </script>
 
