@@ -47,22 +47,22 @@
     },
     {
       "ehubAccountRef": "760-22341", "lob": "22341",
-      "name": "Barbershop Books, Inc.", "xeroContact": "Barbershop Books, Inc.", "mappingConfirmed": false,
+      "name": "Barbershop Books, Inc.", "xeroContact": "Barbershop Books, Inc.", "mappingConfirmed": true,
       "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22351", "lob": "22351",
-      "name": "Total Hydration", "xeroContact": "Total Hydration", "mappingConfirmed": false,
+      "name": "Total Hydration", "xeroContact": "Total Hydration", "mappingConfirmed": true,
       "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22353", "lob": "22353",
-      "name": "Vitamin IQ", "xeroContact": "Vitamin IQ", "mappingConfirmed": false,
+      "name": "Vitamin IQ", "xeroContact": "Vitamin IQ", "mappingConfirmed": true,
       "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     },
     {
       "ehubAccountRef": "760-22354", "lob": "22354",
-      "name": "Primitive Scientific", "xeroContact": "Primitive Scientific", "mappingConfirmed": false,
+      "name": "Primitive Scientific", "xeroContact": "Primitive Scientific", "mappingConfirmed": true,
       "contractedRates": {}, "allocation": { "payrollMonthly": null, "overheadMonthly": null }
     }
   ]
