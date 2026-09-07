@@ -345,11 +345,22 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 .pnl-verdict{font-size:11px;font-weight:800;letter-spacing:.04em;margin-top:2px;}
 .pnl-verdict.pos{color:var(--green-live);}
 .pnl-verdict.neg{color:var(--red);}
+.pnl-verdict.warn{color:var(--orange);}
+.pnl-net.warn{border-color:var(--orange);background:rgba(200,131,42,.10);}
+.pnl-net .val.warn{color:var(--orange);}
 .pnl-note{font-size:11px;color:var(--txt-faint);margin-top:12px;line-height:1.5;}
 @media(max-width:640px){.pnl-op{display:none;}}
 </style>
 <div class="pnl-wrap">
-  <div class="pnl-title">Are we making money? <span id="pnlRange" style="color:var(--txt-faint);font-weight:600;letter-spacing:.04em;text-transform:none;"></span></div>
+  <div class="pnl-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <span>Are we making money? <span id="pnlRange" style="color:var(--txt-faint);font-weight:600;letter-spacing:.04em;text-transform:none;"></span></span>
+    <select id="pnlPeriod" onchange="loadPnL()" style="background:rgba(9,17,12,.5);border:1px solid var(--panel-edge-soft);color:var(--txt);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:normal;text-transform:none;">
+      <option value="lastMonth">Last full month</option>
+      <option value="thisMonth">This month (so far)</option>
+      <option value="last3">Last 3 months</option>
+      <option value="ytd">Year to date</option>
+    </select>
+  </div>
   <div class="pnl-flow" id="pnlFlow"><div class="sbox" style="padding:8px 2px;">Loading…</div></div>
   <div class="pnl-note" id="pnlNote"></div>
 </div>
@@ -387,6 +398,12 @@ function renderPnL(rev,s,e){
   }
   var revv=p.revenue||0, cos=p.costOfSales||0, gp=(p.grossProfit!=null?p.grossProfit:revv-cos), net=p.netIncome||0;
   var overhead=gp-net, gpPct=revv?gp/revv*100:0, netPct=revv?net/revv*100:0, pos=net>=0;
+  // "Preliminary" if the window runs up to ~the present: recent freight/payroll/rent
+  // bills post late, so costs are understated and net income is overstated until close.
+  var endD=new Date(e+'T00:00:00'), daysToNow=(new Date()-endD)/86400000;
+  var preliminary=(daysToNow<10)||(revv>0&&p.costOfSales==null);
+  var cls=preliminary?'warn':(pos?'pos':'neg');
+  var verdict=preliminary?'⏳ preliminary — costs still posting':(pos?'✓ profitable':'✗ operating at a loss');
   function step(lbl,val,sub){ return '<div class="pnl-step"><div class="lbl">'+lbl+'</div><div class="val">'+m$(val)+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>'; }
   function op(sym){ return '<div class="pnl-op">'+sym+'</div>'; }
   flow.innerHTML=
@@ -394,10 +411,12 @@ function renderPnL(rev,s,e){
     +op('&minus;')+step('Direct cost',cos,'freight + materials')
     +op('=')+step('Gross profit',gp,gpPct.toFixed(0)+'% of revenue')
     +op('&minus;')+step('Overhead &amp; other',overhead,'payroll, rent, everything else')
-    +op('=')+'<div class="pnl-step pnl-net '+(pos?'pos':'neg')+'"><div class="lbl">Net income</div>'
-      +'<div class="val '+(pos?'pos':'neg')+'">'+m$(net)+'</div>'
-      +'<div class="pnl-verdict '+(pos?'pos':'neg')+'">'+(pos?'✓ profitable':'✗ operating at a loss')+' ('+netPct.toFixed(0)+'%)</div></div>';
-  note.innerHTML='Straight from your Xero books for this range — every expense included (payroll, rent, equipment, software, insurance). This is the company total; the table below shows which clients drive it (before overhead).';
+    +op('=')+'<div class="pnl-step pnl-net '+cls+'"><div class="lbl">Net income</div>'
+      +'<div class="val '+cls+'">'+m$(net)+'</div>'
+      +'<div class="pnl-verdict '+cls+'">'+verdict+' ('+netPct.toFixed(0)+'%)</div></div>';
+  note.innerHTML=preliminary
+    ? '⏳ <b>Preliminary period.</b> Recent freight bills, payroll and rent post to Xero after the fact, so costs here are understated and net income is overstated. For a true read, use “Last full month.”'
+    : 'Straight from your Xero books for this period — every expense included (payroll, rent, equipment, software, insurance). This is the company total; the table below shows which clients drive it (before overhead).';
 }
 function loadMargins(){
   var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
@@ -409,7 +428,6 @@ function loadMargins(){
     fetch('/.netlify/functions/xero-revenue?start='+s+'&end='+e).then(function(r){return r.json();})
   ]).then(function(res){
     var cfg=res[0], cost=res[1], rev=res[2];
-    renderPnL(rev,s,e);
     var costByAcct={}; (cost.clients||[]).forEach(function(c){costByAcct[c.account]=c;});
     var revByContact={}; (rev.clients||[]).forEach(function(c){revByContact[c.contact]=c;});
     var mkTol=(cfg.compliance&&cfg.compliance.freightMarkupUnderTolerancePts!=null)?cfg.compliance.freightMarkupUnderTolerancePts:2;
@@ -470,7 +488,6 @@ function loadMargins(){
   }).catch(function(err){
     document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="err">'+(err&&err.message||err)+'</td></tr>';
     document.getElementById('mgnAlert').textContent='Error loading margins.';
-    document.getElementById('pnlFlow').innerHTML='<div class="err" style="padding:8px 2px;">'+(err&&err.message||err)+'</div>';
   });
 }
 // Parse the eHub DETAILED export in-browser and store per-day/per-client aggregates
@@ -521,7 +538,25 @@ function initMgnDates(){
   document.getElementById('mgnStart').value=mgnYmd(start);
   document.getElementById('mgnEnd').value=mgnYmd(today);
 }
+// P&L strip has its OWN period (profitability is a monthly question, not a 7-day one).
+function pnlPeriodRange(period){
+  var now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  if(period==='thisMonth') return [mgnYmd(new Date(y,m,1)), mgnYmd(now)];
+  if(period==='last3')     return [mgnYmd(new Date(y,m-2,1)), mgnYmd(now)];
+  if(period==='ytd')       return [mgnYmd(new Date(y,0,1)), mgnYmd(now)];
+  // lastMonth (default): full previous calendar month, e.g. Aug 1–31
+  return [mgnYmd(new Date(y,m-1,1)), mgnYmd(new Date(y,m,0))];
+}
+function loadPnL(){
+  var s=pnlPeriodRange(document.getElementById('pnlPeriod').value), a=s[0], b=s[1];
+  document.getElementById('pnlFlow').innerHTML='<div class="sbox" style="padding:8px 2px;">Loading…</div>';
+  document.getElementById('pnlNote').textContent='';
+  fetch('/.netlify/functions/xero-revenue?start='+a+'&end='+b).then(function(r){return r.json();})
+    .then(function(rev){ renderPnL(rev,a,b); })
+    .catch(function(err){ document.getElementById('pnlFlow').innerHTML='<div class="err" style="padding:8px 2px;">'+(err&&err.message||err)+'</div>'; });
+}
 initMgnDates();
+loadPnL();
 loadMargins();
 </script>
 
