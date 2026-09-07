@@ -3,14 +3,16 @@
 
   "revenueAccounts": {
     "4200": "Freight Revenue - Outbound",
+    "4210": "Freight Revenue - Inbound (confirm name in Xero)",
     "4000": "Warehousing Services",
     "4020": "Management Fees",
     "4100": "Materials Revenue",
     "BG4001": "Technology Fees"
   },
   "revenueAccountRoles": {
+    "_comment": "freight column = outbound (4200) only, per validation. 4210 (inbound freight rev) counts as other/total. Discovered via validation: it was the exact $3,156.68 gap in Joymode total billed.",
     "freight": ["4200"],
-    "other": ["4000", "4020", "4100", "BG4001"]
+    "other": ["4000", "4020", "4100", "BG4001", "4210"]
   },
   "costAccounts": {
     "5200": "COS - Freight Outbound",
