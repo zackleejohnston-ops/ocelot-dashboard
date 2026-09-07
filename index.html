@@ -309,6 +309,94 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
   </div>
 </div>
  
+<style>
+.mgn-wrap{background:var(--panel);border:1px solid var(--panel-edge-soft);border-radius:18px;padding:20px 22px;margin:20px 0;box-shadow:0 10px 30px rgba(0,0,0,.35);}
+.mgn-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;}
+.mgn-title{font-size:12px;font-weight:800;letter-spacing:.18em;color:var(--gold2);text-transform:uppercase;}
+.mgn-range{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt-dim);}
+.mgn-range input{background:rgba(9,17,12,.5);border:1px solid var(--panel-edge-soft);color:var(--txt);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;}
+.mgn-btn{background:rgba(200,131,42,.16);border:1px solid rgba(200,131,42,.5);color:var(--gold2);padding:6px 14px;border-radius:7px;font-weight:700;cursor:pointer;font-family:inherit;font-size:12px;transition:all .15s;}
+.mgn-btn:hover{background:var(--gold);color:var(--cream);}
+.mgn-alert{background:rgba(200,131,42,.08);border:1px solid var(--panel-edge);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--txt);line-height:1.5;}
+.mgn-alert .big{color:var(--gold2);font-weight:800;}
+.mgn-alert .flag{color:var(--orange);font-weight:700;}
+.mgn-tablewrap{overflow-x:auto;}
+.mgn-table{width:100%;border-collapse:collapse;font-size:12px;}
+.mgn-table th{text-align:right;padding:9px 12px;font-size:9px;font-weight:800;letter-spacing:.07em;color:var(--txt-dim);text-transform:uppercase;border-bottom:1px solid var(--panel-edge-soft);white-space:nowrap;}
+.mgn-table th:first-child,.mgn-table td:first-child{text-align:left;}
+.mgn-table td{text-align:right;padding:9px 12px;border-bottom:1px solid rgba(244,239,230,.04);color:var(--txt);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.mgn-table .cn{color:var(--gold2);font-weight:700;}
+.mgn-table tr.tot td{border-top:2px solid var(--panel-edge);font-weight:800;border-bottom:none;}
+.mgn-neg{color:var(--red);}
+.mgn-note{font-size:11px;color:var(--txt-faint);margin-top:10px;line-height:1.5;}
+</style>
+<div class="mgn-wrap">
+  <div class="mgn-head">
+    <div class="mgn-title">Client Margins</div>
+    <div class="mgn-range">
+      <input type="date" id="mgnStart" value="2026-07-01"/><span>to</span><input type="date" id="mgnEnd" value="2026-09-01"/>
+      <button class="mgn-btn" onclick="loadMargins()">Update</button>
+    </div>
+  </div>
+  <div class="mgn-alert" id="mgnAlert">Loading…</div>
+  <div class="mgn-tablewrap">
+    <table class="mgn-table">
+      <thead><tr><th>Client</th><th>Total billed</th><th>Freight billed</th><th>Other billed</th><th>Carrier cost</th><th>Charged back</th><th>Margin</th><th>Margin %</th></tr></thead>
+      <tbody id="mgnBody"><tr><td colspan="8" class="sbox">Loading…</td></tr></tbody>
+    </table>
+  </div>
+  <div class="mgn-note" id="mgnNote"></div>
+</div>
+<script>
+function m$(n){ n=Number(n)||0; var neg=n<0; var s='$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0}); return neg?'-'+s:s; }
+function loadMargins(){
+  var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
+  document.getElementById('mgnBody').innerHTML='<tr><td colspan="8" class="sbox">Loading…</td></tr>';
+  document.getElementById('mgnAlert').textContent='Loading…';
+  Promise.all([
+    fetch('/clients.json').then(function(r){return r.json();}),
+    fetch('/.netlify/functions/cost-store?start='+s+'&end='+e).then(function(r){return r.json();}),
+    fetch('/.netlify/functions/xero-revenue?start='+s+'&end='+e).then(function(r){return r.json();})
+  ]).then(function(res){
+    var cfg=res[0], cost=res[1], rev=res[2];
+    var costByAcct={}; (cost.clients||[]).forEach(function(c){costByAcct[c.account]=c;});
+    var revByContact={}; (rev.clients||[]).forEach(function(c){revByContact[c.contact]=c;});
+    var rows=(cfg.clients||[]).map(function(cl){
+      var c=costByAcct[cl.ehubAccountRef]||{}, r=revByContact[cl.xeroContact]||{};
+      var totalBilled=r.totalBilled||0, carrier=c.carrierCost||0, back=c.chargedBack||0;
+      var margin=totalBilled-carrier-back;
+      return {name:cl.name, confirmed:cl.mappingConfirmed, totalBilled:totalBilled, freight:r.freightBilled||0, other:r.otherBilled||0, carrier:carrier, back:back, margin:margin, mpct:totalBilled?margin/totalBilled*100:0, backRate:carrier?back/carrier*100:0};
+    }).filter(function(x){ return x.totalBilled||x.carrier||x.back; });
+    rows.sort(function(a,b){return a.margin-b.margin;});
+    var T=rows.reduce(function(t,x){t.totalBilled+=x.totalBilled;t.freight+=x.freight;t.other+=x.other;t.carrier+=x.carrier;t.back+=x.back;t.margin+=x.margin;return t;},{totalBilled:0,freight:0,other:0,carrier:0,back:0,margin:0});
+    var body=rows.map(function(x){
+      var neg=x.margin<0?' class="mgn-neg"':'';
+      return '<tr><td class="cn">'+x.name+(x.confirmed===false?' *':'')+(x.backRate>3?' ⚠':'')+'</td>'
+        +'<td>'+m$(x.totalBilled)+'</td><td>'+m$(x.freight)+'</td><td>'+m$(x.other)+'</td>'
+        +'<td>'+m$(x.carrier)+'</td><td>'+m$(x.back)+'</td>'
+        +'<td'+neg+'>'+m$(x.margin)+'</td><td'+neg+'>'+x.mpct.toFixed(1)+'%</td></tr>';
+    }).join('');
+    var mpctT=T.totalBilled?T.margin/T.totalBilled*100:0;
+    body+='<tr class="tot"><td>All clients</td><td>'+m$(T.totalBilled)+'</td><td>'+m$(T.freight)+'</td><td>'+m$(T.other)+'</td><td>'+m$(T.carrier)+'</td><td>'+m$(T.back)+'</td><td>'+m$(T.margin)+'</td><td>'+mpctT.toFixed(1)+'%</td></tr>';
+    document.getElementById('mgnBody').innerHTML=body;
+    var flagged=rows.filter(function(x){return x.backRate>3;}).map(function(x){return x.name+' ('+x.backRate.toFixed(1)+'%)';});
+    var al='<span class="big">'+m$(T.back)+'</span> charged back this period &nbsp;·&nbsp; <span class="big">$0.00</span> rebilled to clients';
+    if(flagged.length) al+='<br><span class="flag">⚠ over 3% back-charge:</span> '+flagged.join(', ');
+    document.getElementById('mgnAlert').innerHTML=al;
+    var notes=[];
+    notes.push('Margin = Total billed − Carrier cost − Charged back (before payroll &amp; overhead).');
+    notes.push('Revenue: live from Xero. Carrier cost &amp; charge-backs: eHub export'+(cost.dataThroughDate?' through '+cost.dataThroughDate:'')+'.');
+    if(cost.unmappedAccounts&&cost.unmappedAccounts.length) notes.push('⚠ Unmapped eHub accounts: '+cost.unmappedAccounts.join(', ')+'.');
+    if(rows.some(function(x){return x.confirmed===false;})) notes.push('* client mapping unconfirmed.');
+    document.getElementById('mgnNote').innerHTML=notes.join(' ');
+  }).catch(function(err){
+    document.getElementById('mgnBody').innerHTML='<tr><td colspan="8" class="err">'+(err&&err.message||err)+'</td></tr>';
+    document.getElementById('mgnAlert').textContent='Error loading margins.';
+  });
+}
+loadMargins();
+</script>
+
 <div class="ftr">
   <div class="fb">OCELOT LOGISTICS - OPERATIONS</div>
   <div class="fb" id="fc">-</div>
