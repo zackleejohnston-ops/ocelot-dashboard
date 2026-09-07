@@ -386,6 +386,12 @@ function loadMargins(){
     var flagged=rows.filter(function(x){return x.backRate>3;}).map(function(x){return x.name+' ('+x.backRate.toFixed(1)+'%)';});
     var al='<span class="big">'+m$(T.back)+'</span> charged back this period &nbsp;·&nbsp; <span class="big">$0.00</span> rebilled to clients';
     if(flagged.length) al+='<br><span class="flag">⚠ over 3% back-charge:</span> '+flagged.join(', ');
+    // Freight-cost reconciliation: eHub (carrier cost + charge-backs) vs Xero account 5200.
+    var a5200=(rev.costAccounts&&rev.costAccounts['5200']&&rev.costAccounts['5200'].amount);
+    if(a5200!=null){
+      var ehubFreight=T.carrier+T.back, diff=a5200-ehubFreight, pct=a5200?diff/a5200*100:0, ok=Math.abs(pct)<=2;
+      al+='<br>'+(ok?'':'<span class="flag">⚠ </span>')+'Freight reconciliation: eHub '+m$(ehubFreight)+' vs Xero 5200 '+m$(a5200)+' &nbsp;('+(diff>=0?'+':'')+pct.toFixed(1)+'%'+(ok?', within 2%':' — '+m$(Math.abs(diff))+' of booked freight not in eHub')+')';
+    }
     document.getElementById('mgnAlert').innerHTML=al;
     var notes=[];
     notes.push('Margin = Total billed − Carrier cost − Charged back (before payroll &amp; overhead).');
