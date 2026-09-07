@@ -376,6 +376,19 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 </div>
 <div class="mgn-wrap">
   <div class="mgn-head">
+    <div class="mgn-title">Profit by client <span id="cpRange" style="color:var(--txt-faint);font-weight:600;letter-spacing:.04em;text-transform:none;"></span></div>
+    <div class="mgn-range" style="color:var(--txt-faint);">who’s carrying the business — uses the period above</div>
+  </div>
+  <div class="mgn-tablewrap">
+    <table class="mgn-table">
+      <thead><tr><th>Client</th><th>Contribution</th><th>Shipments (share)</th><th>Overhead (alloc.)</th><th>Net profit (est.)</th><th>Net %</th></tr></thead>
+      <tbody id="cpBody"><tr><td colspan="6" class="sbox">Loading…</td></tr></tbody>
+    </table>
+  </div>
+  <div class="mgn-note" id="cpNote"></div>
+</div>
+<div class="mgn-wrap">
+  <div class="mgn-head">
     <div class="mgn-title">Client Margins</div>
     <div class="mgn-range">
       <input type="date" id="mgnStart" value="2026-07-01"/><span>to</span><input type="date" id="mgnEnd" value="2026-09-01"/>
@@ -439,6 +452,53 @@ function renderPnL(rev,s,e){
       }).join('');
     }).join('');
   } else { det.innerHTML='<div class="pnl-note">Breakdown unavailable for this period.</div>'; }
+}
+// Per-client net profit — contribution (exact) minus a shipment-weighted share of ALL
+// company cost below contribution, so client nets sum to the company's actual net income.
+function renderClientProfit(cfg,cost,rev,s,e){
+  var body=document.getElementById('cpBody'), note=document.getElementById('cpNote'), rng=document.getElementById('cpRange');
+  rng.textContent=(s&&e)?'· '+s+' to '+e:'';
+  var cb={}; (cost.clients||[]).forEach(function(c){cb[c.account]=c;});
+  var rc={}; (rev.clients||[]).forEach(function(c){rc[c.contact]=c;});
+  var list=(cfg.clients||[]).map(function(cl){
+    var c=cb[cl.ehubAccountRef]||{}, r=rc[cl.xeroContact]||{};
+    var rvn=r.totalBilled||0, carr=c.carrierCost||0, back=c.chargedBack||0, sh=c.shipments||0;
+    return {name:cl.name, rvn:rvn, contrib:rvn-carr-back, ships:sh};
+  }).filter(function(x){ return x.rvn||x.contrib||x.ships; });
+  if(!list.length){ body.innerHTML='<tr><td colspan="6" class="sbox">No client data for this period.</td></tr>'; note.textContent=''; return; }
+  var totShips=list.reduce(function(t,x){return t+x.ships;},0);
+  var totContrib=list.reduce(function(t,x){return t+x.contrib;},0);
+  var totRev=list.reduce(function(t,x){return t+x.rvn;},0);
+  var p=rev&&rev.pnlSummary, net=(p&&p.netIncome!=null)?p.netIncome:null, haveNet=(net!=null);
+  var toAlloc=haveNet?(totContrib-net):0;              // every company cost below contribution
+  var basisTot=totShips>0?totShips:totRev;            // shipment share, fall back to revenue
+  list.forEach(function(x){
+    var basis=totShips>0?x.ships:x.rvn;
+    x.sharePct=basisTot>0?basis/basisTot*100:0;
+    x.oh=(haveNet&&basisTot>0)?toAlloc*(basis/basisTot):0;
+    x.net=haveNet?x.contrib-x.oh:null;
+    x.nmpct=(x.net!=null&&x.rvn)?x.net/x.rvn*100:null;
+  });
+  list.sort(function(a,b){ return haveNet?(a.net-b.net):(b.contrib-a.contrib); });
+  function neg(v){return v<0?' class="mgn-neg"':'';}
+  var h=list.map(function(x){
+    return '<tr><td class="cn">'+x.name+'</td>'
+      +'<td'+neg(x.contrib)+'>'+m$(x.contrib)+'</td>'
+      +'<td>'+(totShips>0?x.ships.toLocaleString():'—')+' <span style="color:var(--txt-faint)">'+x.sharePct.toFixed(0)+'%</span></td>'
+      +'<td'+(haveNet?' class="mgn-neg"':'')+'>'+(haveNet?m$(-x.oh):'—')+'</td>'
+      +(haveNet?('<td'+neg(x.net)+'>'+m$(x.net)+'</td><td'+neg(x.net)+'>'+(x.nmpct!=null?x.nmpct.toFixed(0)+'%':'—')+'</td>'):'<td>—</td><td>—</td>')
+      +'</tr>';
+  }).join('');
+  var netPct=(haveNet&&p.revenue)?(net/p.revenue*100):null;
+  h+='<tr class="tot"><td>All clients</td><td'+neg(totContrib)+'>'+m$(totContrib)+'</td><td>'+(totShips>0?totShips.toLocaleString():'—')+' 100%</td>'
+    +'<td'+(haveNet?' class="mgn-neg"':'')+'>'+(haveNet?m$(-toAlloc):'—')+'</td>'
+    +(haveNet?('<td'+neg(net)+'>'+m$(net)+'</td><td'+neg(net)+'>'+(netPct!=null?netPct.toFixed(0)+'%':'—')+'</td>'):'<td>—</td><td>—</td>')+'</tr>';
+  body.innerHTML=h;
+  var endD=new Date(e+'T00:00:00'), now=new Date(), openMo=(endD.getFullYear()===now.getFullYear()&&endD.getMonth()===now.getMonth());
+  note.innerHTML=(openMo?'⏳ <b>Preliminary</b> (open month — costs still posting). ':'')
+    +(haveNet
+      ? '<b>Contribution</b> (revenue − freight cost) is exact per client. Overhead &amp; all other company costs are split by each client’s <b>shipment share</b> — handling scales with volume, the standard 3PL basis. Client nets sum to the company’s actual net income ('+m$(net)+'). A high-volume, low-margin client can show a loss here even with positive contribution: it eats more warehouse capacity than its margin pays for.'
+      : 'Contribution (revenue − freight cost) per client. Overhead allocation needs the Xero P&amp;L for this period.');
 }
 function loadMargins(){
   var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
@@ -574,9 +634,17 @@ function loadPnL(){
   var s=pnlPeriodRange(document.getElementById('pnlPeriod').value), a=s[0], b=s[1];
   document.getElementById('pnlFlow').innerHTML='<div class="sbox" style="padding:8px 2px;">Loading…</div>';
   document.getElementById('pnlNote').textContent='';
-  fetch('/.netlify/functions/xero-revenue?start='+a+'&end='+b).then(function(r){return r.json();})
-    .then(function(rev){ renderPnL(rev,a,b); })
-    .catch(function(err){ document.getElementById('pnlFlow').innerHTML='<div class="err" style="padding:8px 2px;">'+(err&&err.message||err)+'</div>'; });
+  document.getElementById('cpBody').innerHTML='<tr><td colspan="6" class="sbox">Loading…</td></tr>';
+  Promise.all([
+    fetch('/clients.json').then(function(r){return r.json();}),
+    fetch('/.netlify/functions/cost-store?start='+a+'&end='+b).then(function(r){return r.json();}),
+    fetch('/.netlify/functions/xero-revenue?start='+a+'&end='+b).then(function(r){return r.json();})
+  ]).then(function(res){ var cfg=res[0],cost=res[1],rev=res[2]; renderPnL(rev,a,b); renderClientProfit(cfg,cost,rev,a,b); })
+    .catch(function(err){
+      var m=(err&&err.message||err);
+      document.getElementById('pnlFlow').innerHTML='<div class="err" style="padding:8px 2px;">'+m+'</div>';
+      document.getElementById('cpBody').innerHTML='<tr><td colspan="6" class="err">'+m+'</td></tr>';
+    });
 }
 initMgnDates();
 loadPnL();
