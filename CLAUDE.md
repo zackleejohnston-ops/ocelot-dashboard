@@ -160,8 +160,10 @@ each session. There's a TODO comment in `ehub.js` about it — it's acknowledged
 
 ## Client profitability / margins (added 2026-09-07)
 Per-client margin table at the bottom of the dashboard: Total billed · Freight billed · Other billed ·
-Carrier cost · Charged back · Margin · Margin %, sorted by margin ascending, totals row, date-range
-picker, plus an alert panel (total charged back / rebilled=$0.00 / clients over 3% back-charge flagged).
+Carrier cost · **Freight markup (eff / contract)** · Charged back · Margin · Margin %, sorted by margin
+ascending, totals row, date-range picker, plus an alert panel (total charged back / rebilled=$0.00 /
+clients over 3% back-charge flagged / freight-markup compliance summary). Above it sits the company
+**P&L "Are we making money?" strip** (see DONE 2026-09-07 below).
 Margin = Total billed − Carrier cost − Charged back (payroll/overhead deliberately excluded — later phase).
 
 **Pieces:**
@@ -206,13 +208,38 @@ upload is now only for backfilling older history or one-off reconciliation.
 **5200 reconciliation** (xero-revenue pulls P&L, margins panel shows eHub-vs-5200 with a >2% flag —
 found ~4% / ~$5.8K of booked freight not in eHub, i.e. LTL/direct freight); **all client mappings
 confirmed** via Infoplus LOB table (all 7 now `mappingConfirmed:true`, no `*`).
-**TODO / input-gated next phases (need data from Zack, not just code):**
-(5a) payroll/overhead allocation — needs monthly totals + an allocation basis (by shipments / revenue /
-fixed); Zack held off. Slots ready in `clients.json` (`allocation`).
-(5b) contracted-rate compliance — only Joymode's rate is known (17% markup + $0.20/label + $4 residential,
-already compliant); needs the OTHER clients' rate schedules on file first. Must model markup + per-label
-+ residential together or it false-flags (Joymode bills ~28% of carrier cost and that's CORRECT). Slots
-ready in `clients.json` (`contractedRates`).
+
+**DONE (2026-09-07) — company P&L "Are we making money?" strip** (top of the margins section):
+`xero-revenue.js` returns `pnlSummary` (revenue / cost of sales / gross profit / net income from Xero's
+own P&L subtotals — exact) and `pnlSections` (full section structure for the collapsible line-by-line
+breakdown). `index.html` `renderPnL()` shows Revenue − Direct cost = Gross profit − Overhead & other =
+Net income, green/red verdict, plus "▾ Show full breakdown". It has its OWN period selector
+(`loadPnL()`/`pnlPeriodRange()`), default **Last full month** — profitability is a monthly question, so
+it is NOT tied to the margins table's 7-day picker. Any window ending in the current, still-open month
+is flagged amber "⏳ preliminary" (bookkeeping lag: Gigi at Accounting Frontier enters cards/bills after
+the fact, so recent costs are understated / net overstated). Verified Aug 2026: rev $148,669 → net
+$14,778 (10%); YTD Jan–Aug $1.24M → net $179,583 (14.5%). **Open question:** "Biller Genie Sales
+Account" is a NEGATIVE line inside Revenue (−$10,575, all in Aug) — likely misclassified; if so Aug net
+is really ~$25K. Flagged to Zack for his bookkeeper; don't "fix" Xero data.
+
+**DONE (2026-09-07) — 5b contracted-rate freight compliance:** all 7 rate schedules now in
+`clients.json` `contractedRates` (freight upcharge %, label fee, service fees). Freight upcharges:
+Joymode 17, Sol Science 35, everyone else 40. Margins table has a **Freight markup** column (effective =
+freightBilled/carrierCost−1, vs contract) and flags 🔻 only when effective is below contract minus
+`compliance.freightMarkupUnderTolerancePts` (2). **Only UNDER-billing flags** — per-label/residential/
+intl surcharges ride on top, so a compliant client sits ≥ contract (avoids the Joymode false-flag: it
+bills ~28% and that's CORRECT). Compliance needs BOTH carrier cost and billed freight > 0; freight==0
+with carrier>0 (the 7-day default window, invoices not posted yet) shows "—", not a false −100%. So
+compliance only means something over a CLOSED window (last month / Jul–Sep). Over Jul 1–Sep 1 it
+correctly caught Barbershop Books billing 28% vs its 40% contract.
+
+**Margins date defaults:** the table opens on **last 7 days** (matches the orders table) via
+`initMgnDates()`; the P&L strip opens on **last full month** independently.
+
+**TODO / input-gated next phase (needs data from Zack, not just code):**
+(5a) payroll/overhead allocation — split the P&L's overhead across clients (by shipments / revenue /
+fixed) for per-client NET profit. Needs an allocation basis from Zack; slots ready in `clients.json`
+(`allocation`). Offered 2026-09-07; not yet started.
 Note: gating `/*` breaks server-to-server calls — `cron-rollup` and the nightly sync send their own
 basic-auth header (`DASH_USER`/`DASH_PASS`), and the Xero OAuth endpoints are exempt in `auth.js`.
 Keep that in mind for any new internal function calls.
