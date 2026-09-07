@@ -1,7 +1,8 @@
 [build]
   functions = "netlify/functions"
 
-# Daily at 09:00 UTC (~4-5am ET) — after the day is complete. cron-rollup just kicks
-# off rollup-background, which tallies each recent shipping day into Blobs.
+# Daily at 09:00 UTC (~4-5am ET), after the day is complete. cron-rollup fires two background
+# jobs: rollup-background (shipped hero) and nightly-sync-background (margin-table carrier cost +
+# charge-backs). This is what makes the client-margin table self-update with zero manual steps.
 [functions."cron-rollup"]
   schedule = "0 9 * * *"

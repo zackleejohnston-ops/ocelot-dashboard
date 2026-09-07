@@ -187,16 +187,28 @@ Margin = Total billed − Carrier cost − Charged back (payroll/overhead delibe
   `offline_access accounting.invoices.read accounting.contacts.read accounting.reports.profitandloss.read`.
 - Xero **rotates the refresh token every use** — always store the new one back (xero-revenue does).
 
-**Freshness:** revenue = live per load; carrier cost + charge-backs = from the stored eHub export
-(re-uploaded periodically). Charge-backs lag 6–34 days by nature.
+**Freshness (auto — no manual step):** a nightly background job `nightly-sync-background.js` (fired by
+`cron-rollup` at 09:00 UTC) captures recent carrier cost (`/shipments`, day-by-day) + charge-backs
+(`/reports/shipment_adjustments`) from eHub and MERGES them into `cost/aggregates` for dates
+**>= `SYNC_CUTOVER` (2026-09-02)**. Dates before the cutover stay as the validated CSV seed, so the
+Jul–Sep history is never disturbed. Revenue = live per load. So: everything self-updates; the CSV
+upload is now only for backfilling older history or one-off reconciliation.
+- Charge-back amount field = `meter_adj` (stored NEGATIVE to match the CSV debit convention; validated:
+  report meter_adj == −CSV adjustments for the same window). Charge-backs post 6–34 days late, so a
+  recent day legitimately shows $0 back until they land.
+- Carrier cost via `/shipments` keys off shipDate (vs the CSV's txn date) — fine because auto-owned
+  dates (>= cutover) and CSV-seeded dates (< cutover) don't overlap. `sync-status.js` reports last run.
+- eHub adjustments API quirk: `/reports/shipment_adjustments` ignores date params, returns only a
+  ~1-week rolling window, page 2+ empty (use page=1&per_page=10000), and takes up to ~2 min → must run
+  in a background function. That's why nightly capture (append/overwrite recent days) is the design.
 
-**TODO / next phases:** (A, chosen) auto-refresh carrier cost via the nightly rollup so it's not a
-manual export — validate it reconciles to $52,990.53 (rollup keys off shipDate vs export's txn date).
-(2) a CSV-upload control so the eHub export self-serves into `cost-store`. (3) the ±2% eHub-vs-Xero-5200
-cost reconciliation (P&L scope is granted). (4) confirm the 4 unconfirmed client mappings. (5) payroll/
-overhead allocation + per-client contracted-rate compliance (slots already in `clients.json`).
-Note: gating `/*` would break server-to-server calls — `cron-rollup` sends its own basic-auth header,
-and OAuth endpoints are exempt. Keep that in mind for any new internal function calls.
+**DONE:** CSV-upload control (`index.html` `ingestCost()` → cost-store); nightly auto-sync (above).
+**TODO / next phases:** (3) the ±2% eHub-vs-Xero-5200 cost reconciliation (P&L scope is granted).
+(4) confirm the 4 unconfirmed client mappings. (5) payroll/overhead allocation + per-client
+contracted-rate compliance (slots already in `clients.json`).
+Note: gating `/*` breaks server-to-server calls — `cron-rollup` and the nightly sync send their own
+basic-auth header (`DASH_USER`/`DASH_PASS`), and the Xero OAuth endpoints are exempt in `auth.js`.
+Keep that in mind for any new internal function calls.
 
 ## Keep this file current
 Update CLAUDE.md when layout, data sources, or decisions change, so it doesn't go stale.
