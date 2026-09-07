@@ -461,7 +461,9 @@ function loadMargins(){
       // per-label/residential/intl surcharges ride on top, so a compliant client sits >= contract.
       var cr=cl.contractedRates||{};
       var contractPct=(typeof cr.freightMarkupPct==='number')?cr.freightMarkupPct:null;
-      var effPct=(carrier>0)?(freight/carrier-1)*100:null;
+      // Needs BOTH carrier cost and billed freight. freight==0 with carrier>0 means the
+      // invoice just hasn't posted yet (billing lag) — that's unknown (—), not a real -100%.
+      var effPct=(carrier>0&&freight>0)?(freight/carrier-1)*100:null;
       var underContract=(effPct!=null&&contractPct!=null)?(effPct<contractPct-mkTol):false;
       var shortfall=(underContract)?carrier*(1+contractPct/100)-freight:0;
       return {name:cl.name, confirmed:cl.mappingConfirmed, totalBilled:totalBilled, freight:freight, other:r.otherBilled||0, carrier:carrier, back:back, margin:margin, mpct:totalBilled?margin/totalBilled*100:0, backRate:carrier?back/carrier*100:0, contractPct:contractPct, effPct:effPct, underContract:underContract, shortfall:shortfall};
@@ -487,11 +489,10 @@ function loadMargins(){
     // Freight-markup compliance: clients billing outbound freight BELOW their contracted upcharge.
     var under=rows.filter(function(x){return x.underContract;});
     if(under.length){
-      al+='<br><span class="flag">🔻 under contracted freight markup:</span> '+under.map(function(x){
-        return x.name+' (billing '+x.effPct.toFixed(0)+'% vs '+x.contractPct+'% contract, ~'+m$(x.shortfall)+' under)';
-      }).join('; ');
+      var worst=under.reduce(function(a,b){return a.shortfall>b.shortfall?a:b;});
+      al+='<br><span class="flag">🔻 '+under.length+' under contracted freight markup</span> — worst '+worst.name+' ('+worst.effPct.toFixed(0)+'% vs '+worst.contractPct+'%). See the Freight markup column.';
     } else if(rows.some(function(x){return x.contractPct!=null&&x.effPct!=null;})){
-      al+='<br><span style="color:var(--green-live)">✓ all clients billing at or above contracted freight markup.</span>';
+      al+='<br><span style="color:var(--green-live)">✓ freight markups on contract.</span>';
     }
     // Freight-cost reconciliation: eHub (carrier cost + charge-backs) vs Xero account 5200.
     var a5200=(rev.costAccounts&&rev.costAccounts['5200']&&rev.costAccounts['5200'].amount);
