@@ -51,37 +51,41 @@ async function pullAdjustments(days) {
   return { status: r.status, records: arr.length, kept: kept, error: r.error };
 }
 
-// Carrier cost: last PURCHASE_WINDOW_DAYS of shipments (by shipDate). purchase stored NEGATIVE.
+// Carrier cost: iterate day-by-day over the rolling window (clamped to start at CUTOVER, so all
+// shipments are in range — no cross-day paging order surprises). purchase stored NEGATIVE.
 async function pullPurchases(days) {
   const now = new Date();
-  const from = new Date(now); from.setDate(from.getDate() - PURCHASE_WINDOW_DAYS);
-  const fromTime = ymd(from) + ' 12:00:00 AM';
-  const toTime = ymd(now) + ' 11:59:59 PM';
-  const seen = {}; let count = 0, pages = 0; const start = Date.now();
-  for (let page = 1; page <= 60; page++) {
-    if (Date.now() - start > 300000) break; // 5-min safety
-    const qs = 'per_page=200&page=' + page + '&status=shipped&ship_from_time=' + encodeURIComponent(fromTime) + '&ship_to_time=' + encodeURIComponent(toTime);
-    const r = await ehubGet('app.ehub.com', '/api/v2/shipments?' + qs, 15000);
-    let rows = [];
-    try { const j = JSON.parse(r.body); rows = Array.isArray(j) ? j : (j.shipments || j.data || []); } catch (e) {}
-    pages = page;
-    let added = 0;
-    rows.forEach(s => {
-      const key = s.id != null ? s.id : (s.parcels && s.parcels[0] && s.parcels[0].tracking_number);
-      if (key != null) { if (seen[key]) return; seen[key] = 1; }
-      const date = (s.shipped_at || '').slice(0, 10);
-      if (!date || date < CUTOVER) return;
-      const acct = s.account_reference || '(blank)';
-      const rate = s.shipping_service && s.shipping_service.rate ? parseFloat(s.shipping_service.rate) : 0;
-      days[date] = days[date] || {}; days[date][acct] = days[date][acct] || {};
-      days[date][acct].purchase = (days[date][acct].purchase || 0) - rate;
-      days[date][acct].shipments = (days[date][acct].shipments || 0) + 1;
-      count++; added++;
-    });
-    if (rows.length < 200) break;
-    if (added === 0) break;
+  let from = new Date(now); from.setDate(from.getDate() - PURCHASE_WINDOW_DAYS);
+  const cut = new Date(CUTOVER + 'T00:00:00');
+  if (from < cut) from = cut;
+  let count = 0, dayCount = 0; const budget = Date.now();
+  for (let d = new Date(from); d <= now; d.setDate(d.getDate() + 1)) {
+    if (Date.now() - budget > 420000) break; // 7-min safety
+    const dstr = ymd(d);
+    const fromTime = dstr + ' 12:00:00 AM', toTime = dstr + ' 11:59:59 PM';
+    const seen = {};
+    for (let page = 1; page <= 40; page++) {
+      const qs = 'per_page=200&page=' + page + '&status=shipped&ship_from_time=' + encodeURIComponent(fromTime) + '&ship_to_time=' + encodeURIComponent(toTime);
+      const r = await ehubGet('app.ehub.com', '/api/v2/shipments?' + qs, 15000);
+      let rows = [];
+      try { const j = JSON.parse(r.body); rows = Array.isArray(j) ? j : (j.shipments || j.data || []); } catch (e) {}
+      let added = 0;
+      rows.forEach(s => {
+        const key = s.id != null ? s.id : (s.parcels && s.parcels[0] && s.parcels[0].tracking_number);
+        if (key != null) { if (seen[key]) return; seen[key] = 1; }
+        const acct = s.account_reference || '(blank)';
+        const rate = s.shipping_service && s.shipping_service.rate ? parseFloat(s.shipping_service.rate) : 0;
+        days[dstr] = days[dstr] || {}; days[dstr][acct] = days[dstr][acct] || {};
+        days[dstr][acct].purchase = (days[dstr][acct].purchase || 0) - rate;
+        days[dstr][acct].shipments = (days[dstr][acct].shipments || 0) + 1;
+        count++; added++;
+      });
+      if (rows.length < 200) break;
+      if (added === 0) break;
+    }
+    dayCount++;
   }
-  return { shipments: count, pages: pages };
+  return { shipments: count, days: dayCount };
 }
 
 exports.handler = async function () {
