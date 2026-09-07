@@ -398,10 +398,12 @@ function renderPnL(rev,s,e){
   }
   var revv=p.revenue||0, cos=p.costOfSales||0, gp=(p.grossProfit!=null?p.grossProfit:revv-cos), net=p.netIncome||0;
   var overhead=gp-net, gpPct=revv?gp/revv*100:0, netPct=revv?net/revv*100:0, pos=net>=0;
-  // "Preliminary" if the window runs up to ~the present: recent freight/payroll/rent
-  // bills post late, so costs are understated and net income is overstated until close.
-  var endD=new Date(e+'T00:00:00'), daysToNow=(new Date()-endD)/86400000;
-  var preliminary=(daysToNow<10)||(revv>0&&p.costOfSales==null);
+  // "Preliminary" if the window runs into the CURRENT (open) calendar month: recent
+  // freight/payroll/rent bills post late, so costs are understated and net income is
+  // overstated until the month closes. A window ending in a prior month is treated as final.
+  var endD=new Date(e+'T00:00:00'), now=new Date();
+  var inOpenMonth=(endD.getFullYear()===now.getFullYear()&&endD.getMonth()===now.getMonth());
+  var preliminary=inOpenMonth||(revv>0&&p.costOfSales==null);
   var cls=preliminary?'warn':(pos?'pos':'neg');
   var verdict=preliminary?'⏳ preliminary — costs still posting':(pos?'✓ profitable':'✗ operating at a loss');
   function step(lbl,val,sub){ return '<div class="pnl-step"><div class="lbl">'+lbl+'</div><div class="val">'+m$(val)+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>'; }
