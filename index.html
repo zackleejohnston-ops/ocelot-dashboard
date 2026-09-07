@@ -349,6 +349,14 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 .pnl-net.warn{border-color:var(--orange);background:rgba(200,131,42,.10);}
 .pnl-net .val.warn{color:var(--orange);}
 .pnl-note{font-size:11px;color:var(--txt-faint);margin-top:12px;line-height:1.5;}
+.pnl-toggle{background:none;border:none;color:var(--gold2);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;padding:8px 0 0;}
+.pnl-detail{margin-top:8px;border-top:1px solid var(--panel-edge-soft);padding-top:8px;max-width:520px;}
+.pnl-dsec{font-size:9px;font-weight:800;letter-spacing:.08em;color:var(--gold2);text-transform:uppercase;margin:12px 0 3px;}
+.pnl-drow{display:flex;justify-content:space-between;gap:16px;font-size:12px;padding:3px 0;font-variant-numeric:tabular-nums;}
+.pnl-drow span:first-child{color:var(--txt-dim);}
+.pnl-drow span:last-child{white-space:nowrap;}
+.pnl-drow.sum{font-weight:800;border-top:1px solid rgba(244,239,230,.08);margin-top:2px;padding-top:5px;}
+.pnl-drow.sum span:first-child{color:var(--txt);}
 @media(max-width:640px){.pnl-op{display:none;}}
 </style>
 <div class="pnl-wrap">
@@ -363,6 +371,8 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
   </div>
   <div class="pnl-flow" id="pnlFlow"><div class="sbox" style="padding:8px 2px;">Loading…</div></div>
   <div class="pnl-note" id="pnlNote"></div>
+  <button class="pnl-toggle" id="pnlToggle" onclick="var d=document.getElementById('pnlDetail');d.hidden=!d.hidden;this.textContent=(d.hidden?'▾ Show full breakdown':'▴ Hide breakdown');">▾ Show full breakdown</button>
+  <div class="pnl-detail" id="pnlDetail" hidden></div>
 </div>
 <div class="mgn-wrap">
   <div class="mgn-head">
@@ -419,6 +429,16 @@ function renderPnL(rev,s,e){
   note.innerHTML=preliminary
     ? '⏳ <b>Preliminary period.</b> Recent freight bills, payroll and rent post to Xero after the fact, so costs here are understated and net income is overstated. For a true read, use “Last full month.”'
     : 'Straight from your Xero books for this period — every expense included (payroll, rent, equipment, software, insurance). This is the company total; the table below shows which clients drive it (before overhead).';
+  // Full line-by-line breakdown (collapsed by default).
+  var det=document.getElementById('pnlDetail');
+  if(rev.pnlSections&&rev.pnlSections.length){
+    det.innerHTML=rev.pnlSections.map(function(sec){
+      var h=sec.title?'<div class="pnl-dsec">'+sec.title+'</div>':'';
+      return h+sec.rows.map(function(row){
+        return '<div class="pnl-drow'+(row.summary?' sum':'')+'"><span>'+row.name+'</span><span'+(row.amount<0?' class="mgn-neg"':'')+'>'+m$(row.amount)+'</span></div>';
+      }).join('');
+    }).join('');
+  } else { det.innerHTML='<div class="pnl-note">Breakdown unavailable for this period.</div>'; }
 }
 function loadMargins(){
   var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
