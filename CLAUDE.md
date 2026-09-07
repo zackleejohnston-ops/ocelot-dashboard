@@ -202,10 +202,17 @@ upload is now only for backfilling older history or one-off reconciliation.
   ~1-week rolling window, page 2+ empty (use page=1&per_page=10000), and takes up to ~2 min → must run
   in a background function. That's why nightly capture (append/overwrite recent days) is the design.
 
-**DONE:** CSV-upload control (`index.html` `ingestCost()` → cost-store); nightly auto-sync (above).
-**TODO / next phases:** (3) the ±2% eHub-vs-Xero-5200 cost reconciliation (P&L scope is granted).
-(4) confirm the 4 unconfirmed client mappings. (5) payroll/overhead allocation + per-client
-contracted-rate compliance (slots already in `clients.json`).
+**DONE:** CSV-upload control (`index.html` `ingestCost()` → cost-store); nightly auto-sync (above);
+**5200 reconciliation** (xero-revenue pulls P&L, margins panel shows eHub-vs-5200 with a >2% flag —
+found ~4% / ~$5.8K of booked freight not in eHub, i.e. LTL/direct freight); **all client mappings
+confirmed** via Infoplus LOB table (all 7 now `mappingConfirmed:true`, no `*`).
+**TODO / input-gated next phases (need data from Zack, not just code):**
+(5a) payroll/overhead allocation — needs monthly totals + an allocation basis (by shipments / revenue /
+fixed); Zack held off. Slots ready in `clients.json` (`allocation`).
+(5b) contracted-rate compliance — only Joymode's rate is known (17% markup + $0.20/label + $4 residential,
+already compliant); needs the OTHER clients' rate schedules on file first. Must model markup + per-label
++ residential together or it false-flags (Joymode bills ~28% of carrier cost and that's CORRECT). Slots
+ready in `clients.json` (`contractedRates`).
 Note: gating `/*` breaks server-to-server calls — `cron-rollup` and the nightly sync send their own
 basic-auth header (`DASH_USER`/`DASH_PASS`), and the Xero OAuth endpoints are exempt in `auth.js`.
 Keep that in mind for any new internal function calls.
