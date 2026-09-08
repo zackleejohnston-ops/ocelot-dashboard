@@ -485,13 +485,13 @@ function renderClientProfit(cfg,cost,rev,s,e){
     return '<tr><td class="cn">'+x.name+'</td>'
       +'<td'+neg(x.contrib)+'>'+m$(x.contrib)+'</td>'
       +'<td>'+(totShips>0?x.ships.toLocaleString():'—')+' <span style="color:var(--txt-faint)">'+x.sharePct.toFixed(0)+'%</span></td>'
-      +'<td'+(haveNet?' class="mgn-neg"':'')+'>'+(haveNet?m$(-x.oh):'—')+'</td>'
+      +'<td style="color:var(--txt-dim)">'+(haveNet?m$(-x.oh):'—')+'</td>'
       +(haveNet?('<td'+neg(x.net)+'>'+m$(x.net)+'</td><td'+neg(x.net)+'>'+(x.nmpct!=null?x.nmpct.toFixed(0)+'%':'—')+'</td>'):'<td>—</td><td>—</td>')
       +'</tr>';
   }).join('');
   var netPct=(haveNet&&p.revenue)?(net/p.revenue*100):null;
   h+='<tr class="tot"><td>All clients</td><td'+neg(totContrib)+'>'+m$(totContrib)+'</td><td>'+(totShips>0?totShips.toLocaleString():'—')+' 100%</td>'
-    +'<td'+(haveNet?' class="mgn-neg"':'')+'>'+(haveNet?m$(-toAlloc):'—')+'</td>'
+    +'<td style="color:var(--txt-dim)">'+(haveNet?m$(-toAlloc):'—')+'</td>'
     +(haveNet?('<td'+neg(net)+'>'+m$(net)+'</td><td'+neg(net)+'>'+(netPct!=null?netPct.toFixed(0)+'%':'—')+'</td>'):'<td>—</td><td>—</td>')+'</tr>';
   body.innerHTML=h;
   var endD=new Date(e+'T00:00:00'), now=new Date(), openMo=(endD.getFullYear()===now.getFullYear()&&endD.getMonth()===now.getMonth());
