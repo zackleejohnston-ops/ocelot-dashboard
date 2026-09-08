@@ -233,8 +233,14 @@ with carrier>0 (the 7-day default window, invoices not posted yet) shows "—", 
 compliance only means something over a CLOSED window (last month / Jul–Sep). Over Jul 1–Sep 1 it
 correctly caught Barbershop Books billing 28% vs its 40% contract.
 
-**Margins date defaults:** the table opens on **last 7 days** (matches the orders table) via
-`initMgnDates()`; the P&L strip opens on **last full month** independently.
+**Unified date control (2026-09-07):** ONE period picker at the top of the P&L strip (`finPeriod`
+dropdown + `finStart`/`finEnd` boxes) drives the WHOLE financial section — P&L, Profit by client, AND
+Client Margins share the same dates. `loadFinance()` resolves the range, fetches clients.json +
+cost-store + xero-revenue ONCE, and calls `renderPnL` + `renderClientProfit` + `renderMargins`. Presets:
+last full month (default), this month, last 3 months, YTD, last 7 days, custom. Editing a date box flips
+the dropdown to Custom. The Client Margins panel no longer has its own date boxes. (Earlier the margins
+table defaulted to 7 days and the P&L had a separate monthly selector — Zack found the mismatched dates
+confusing, so they were unified.)
 
 **DONE (2026-09-07) — 5a per-client net profit ("Profit by client" panel, under the P&L strip):**
 `index.html` `renderClientProfit()`, fed by `loadPnL()` (which now fetches clients.json + cost-store +
