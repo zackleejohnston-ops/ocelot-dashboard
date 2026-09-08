@@ -362,13 +362,21 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 <div class="pnl-wrap">
   <div class="pnl-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
     <span>Are we making money? <span id="pnlRange" style="color:var(--txt-faint);font-weight:600;letter-spacing:.04em;text-transform:none;"></span></span>
-    <select id="pnlPeriod" onchange="loadPnL()" style="background:rgba(9,17,12,.5);border:1px solid var(--panel-edge-soft);color:var(--txt);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:normal;text-transform:none;">
-      <option value="lastMonth">Last full month</option>
-      <option value="thisMonth">This month (so far)</option>
-      <option value="last3">Last 3 months</option>
-      <option value="ytd">Year to date</option>
-    </select>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;letter-spacing:normal;text-transform:none;">
+      <select id="finPeriod" onchange="onFinPreset()" style="background:rgba(9,17,12,.5);border:1px solid var(--panel-edge-soft);color:var(--txt);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;font-weight:700;">
+        <option value="lastMonth">Last full month</option>
+        <option value="thisMonth">This month (so far)</option>
+        <option value="last3">Last 3 months</option>
+        <option value="ytd">Year to date</option>
+        <option value="last7">Last 7 days</option>
+        <option value="custom">Custom range</option>
+      </select>
+      <input type="date" id="finStart" onchange="onFinDateEdit()" style="background:rgba(9,17,12,.5);border:1px solid var(--panel-edge-soft);color:var(--txt);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;"/>
+      <span style="color:var(--txt-faint);font-size:12px;">to</span>
+      <input type="date" id="finEnd" onchange="onFinDateEdit()" style="background:rgba(9,17,12,.5);border:1px solid var(--panel-edge-soft);color:var(--txt);border-radius:7px;padding:6px 8px;font-family:inherit;font-size:12px;"/>
+    </div>
   </div>
+  <div style="font-size:11px;color:var(--txt-faint);margin:-4px 0 10px;">One date range drives the P&amp;L, Profit by client, and Client Margins below.</div>
   <div class="pnl-flow" id="pnlFlow"><div class="sbox" style="padding:8px 2px;">Loading…</div></div>
   <div class="pnl-note" id="pnlNote"></div>
   <button class="pnl-toggle" id="pnlToggle" onclick="var d=document.getElementById('pnlDetail');d.hidden=!d.hidden;this.textContent=(d.hidden?'▾ Show full breakdown':'▴ Hide breakdown');">▾ Show full breakdown</button>
@@ -389,10 +397,9 @@ tbody td{padding:10px 16px;color:var(--txt);vertical-align:middle;}
 </div>
 <div class="mgn-wrap">
   <div class="mgn-head">
-    <div class="mgn-title">Client Margins</div>
+    <div class="mgn-title">Client Margins <span id="mgnRange" style="color:var(--txt-faint);font-weight:600;letter-spacing:.04em;text-transform:none;"></span></div>
     <div class="mgn-range">
-      <input type="date" id="mgnStart" value="2026-07-01"/><span>to</span><input type="date" id="mgnEnd" value="2026-09-01"/>
-      <button class="mgn-btn" onclick="loadMargins()">Update</button>
+      <span style="color:var(--txt-faint);">operational view · uses the date range above</span>
       <button class="mgn-btn" onclick="document.getElementById('costFile').click()" title="Upload the eHub Detailed transactions export to refresh cost + charge-backs">&#8593; Load cost CSV</button>
       <input type="file" id="costFile" accept=".csv" style="display:none" onchange="ingestCost(this.files&&this.files[0]);this.value='';"/>
       <span id="costStatus" style="font-size:11px;color:var(--txt-dim);"></span>
@@ -500,16 +507,8 @@ function renderClientProfit(cfg,cost,rev,s,e){
       ? '<b>Contribution</b> (revenue − freight cost) is exact per client. Overhead &amp; all other company costs are split by each client’s <b>shipment share</b> — handling scales with volume, the standard 3PL basis. Client nets sum to the company’s actual net income ('+m$(net)+'). A high-volume, low-margin client can show a loss here even with positive contribution: it eats more warehouse capacity than its margin pays for.'
       : 'Contribution (revenue − freight cost) per client. Overhead allocation needs the Xero P&amp;L for this period.');
 }
-function loadMargins(){
-  var s=document.getElementById('mgnStart').value, e=document.getElementById('mgnEnd').value;
-  document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="sbox">Loading…</td></tr>';
-  document.getElementById('mgnAlert').textContent='Loading…';
-  Promise.all([
-    fetch('/clients.json').then(function(r){return r.json();}),
-    fetch('/.netlify/functions/cost-store?start='+s+'&end='+e).then(function(r){return r.json();}),
-    fetch('/.netlify/functions/xero-revenue?start='+s+'&end='+e).then(function(r){return r.json();})
-  ]).then(function(res){
-    var cfg=res[0], cost=res[1], rev=res[2];
+function renderMargins(cfg,cost,rev,s,e){
+    var mr=document.getElementById('mgnRange'); if(mr) mr.textContent=(s&&e)?'· '+s+' to '+e:'';
     var costByAcct={}; (cost.clients||[]).forEach(function(c){costByAcct[c.account]=c;});
     var revByContact={}; (rev.clients||[]).forEach(function(c){revByContact[c.contact]=c;});
     var mkTol=(cfg.compliance&&cfg.compliance.freightMarkupUnderTolerancePts!=null)?cfg.compliance.freightMarkupUnderTolerancePts:2;
@@ -568,10 +567,6 @@ function loadMargins(){
     if(rows.some(function(x){return x.confirmed===false;})) notes.push('* client mapping unconfirmed.');
     notes.push('Freight markup = effective outbound upcharge (freight billed ÷ carrier cost − 1) vs contract. Per-label, residential &amp; intl surcharges ride on top, so a compliant client sits at or above contract; 🔻 flags billing below the contracted floor.');
     document.getElementById('mgnNote').innerHTML=notes.join(' ');
-  }).catch(function(err){
-    document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="err">'+(err&&err.message||err)+'</td></tr>';
-    document.getElementById('mgnAlert').textContent='Error loading margins.';
-  });
 }
 // Parse the eHub DETAILED export in-browser and store per-day/per-client aggregates
 // (signed sums — same math validated to the penny). Heavy CSV never hits a function.
@@ -606,49 +601,57 @@ function ingestCost(file){
         st.textContent='Uploading '+nDays+' days…';
         fetch('/.netlify/functions/cost-store',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({days:days,sourceFile:file.name})})
           .then(function(r){return r.json();})
-          .then(function(j){ if(j.ok){ st.innerHTML='<span style="color:var(--green-live)">✓ Cost data updated through '+(j.dataThroughDate||'?')+' ('+(j.days||nDays)+' days). Refreshing…</span>'; loadMargins(); } else { st.textContent='Store error: '+(j.error||JSON.stringify(j)); } })
+          .then(function(j){ if(j.ok){ st.innerHTML='<span style="color:var(--green-live)">✓ Cost data updated through '+(j.dataThroughDate||'?')+' ('+(j.days||nDays)+' days). Refreshing…</span>'; loadFinance(); } else { st.textContent='Store error: '+(j.error||JSON.stringify(j)); } })
           .catch(function(e){ st.textContent='Upload failed: '+(e&&e.message||e); });
       }catch(e){ st.textContent='Parse error: '+(e&&e.message||e); }
     },
     error:function(e){ st.textContent='Parse error: '+(e&&e.message||e); }
   });
 }
-// Date default: last 7 days ending today, matching the orders table. (You can still
-// widen the range by hand and hit Update for a longer look.)
+// ONE date control drives the whole financial section (P&L strip + Profit by client +
+// Client Margins), so their dates always match.
 function mgnYmd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function initMgnDates(){
-  var today=new Date(), start=new Date(); start.setDate(start.getDate()-6);   // 7 days inclusive
-  document.getElementById('mgnStart').value=mgnYmd(start);
-  document.getElementById('mgnEnd').value=mgnYmd(today);
-}
-// P&L strip has its OWN period (profitability is a monthly question, not a 7-day one).
-function pnlPeriodRange(period){
+function finPresetRange(period){
   var now=new Date(), y=now.getFullYear(), m=now.getMonth();
   if(period==='thisMonth') return [mgnYmd(new Date(y,m,1)), mgnYmd(now)];
   if(period==='last3')     return [mgnYmd(new Date(y,m-2,1)), mgnYmd(now)];
   if(period==='ytd')       return [mgnYmd(new Date(y,0,1)), mgnYmd(now)];
+  if(period==='last7')     { var s7=new Date(); s7.setDate(s7.getDate()-6); return [mgnYmd(s7), mgnYmd(now)]; }
   // lastMonth (default): full previous calendar month, e.g. Aug 1–31
   return [mgnYmd(new Date(y,m-1,1)), mgnYmd(new Date(y,m,0))];
 }
-function loadPnL(){
-  var s=pnlPeriodRange(document.getElementById('pnlPeriod').value), a=s[0], b=s[1];
+// Preset dropdown changed → fill the date boxes and reload.
+function onFinPreset(){
+  var v=document.getElementById('finPeriod').value;
+  if(v!=='custom'){ var r=finPresetRange(v); document.getElementById('finStart').value=r[0]; document.getElementById('finEnd').value=r[1]; }
+  loadFinance();
+}
+// A date box was edited by hand → switch the dropdown to Custom and reload.
+function onFinDateEdit(){ document.getElementById('finPeriod').value='custom'; loadFinance(); }
+function loadFinance(){
+  var a=document.getElementById('finStart').value, b=document.getElementById('finEnd').value;
+  if(!a||!b) return;
   document.getElementById('pnlFlow').innerHTML='<div class="sbox" style="padding:8px 2px;">Loading…</div>';
   document.getElementById('pnlNote').textContent='';
   document.getElementById('cpBody').innerHTML='<tr><td colspan="6" class="sbox">Loading…</td></tr>';
+  document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="sbox">Loading…</td></tr>';
+  document.getElementById('mgnAlert').textContent='Loading…';
   Promise.all([
     fetch('/clients.json').then(function(r){return r.json();}),
     fetch('/.netlify/functions/cost-store?start='+a+'&end='+b).then(function(r){return r.json();}),
     fetch('/.netlify/functions/xero-revenue?start='+a+'&end='+b).then(function(r){return r.json();})
-  ]).then(function(res){ var cfg=res[0],cost=res[1],rev=res[2]; renderPnL(rev,a,b); renderClientProfit(cfg,cost,rev,a,b); })
-    .catch(function(err){
-      var m=(err&&err.message||err);
-      document.getElementById('pnlFlow').innerHTML='<div class="err" style="padding:8px 2px;">'+m+'</div>';
-      document.getElementById('cpBody').innerHTML='<tr><td colspan="6" class="err">'+m+'</td></tr>';
-    });
+  ]).then(function(res){
+    var cfg=res[0],cost=res[1],rev=res[2];
+    renderPnL(rev,a,b); renderClientProfit(cfg,cost,rev,a,b); renderMargins(cfg,cost,rev,a,b);
+  }).catch(function(err){
+    var m=(err&&err.message||err);
+    document.getElementById('pnlFlow').innerHTML='<div class="err" style="padding:8px 2px;">'+m+'</div>';
+    document.getElementById('cpBody').innerHTML='<tr><td colspan="6" class="err">'+m+'</td></tr>';
+    document.getElementById('mgnBody').innerHTML='<tr><td colspan="9" class="err">'+m+'</td></tr>';
+    document.getElementById('mgnAlert').textContent='Error loading.';
+  });
 }
-initMgnDates();
-loadPnL();
-loadMargins();
+onFinPreset();   // default = Last full month; fills boxes and loads all three
 </script>
 
 <div class="ftr">
