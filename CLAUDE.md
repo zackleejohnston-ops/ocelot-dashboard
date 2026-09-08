@@ -236,10 +236,23 @@ correctly caught Barbershop Books billing 28% vs its 40% contract.
 **Margins date defaults:** the table opens on **last 7 days** (matches the orders table) via
 `initMgnDates()`; the P&L strip opens on **last full month** independently.
 
-**TODO / input-gated next phase (needs data from Zack, not just code):**
-(5a) payroll/overhead allocation — split the P&L's overhead across clients (by shipments / revenue /
-fixed) for per-client NET profit. Needs an allocation basis from Zack; slots ready in `clients.json`
-(`allocation`). Offered 2026-09-07; not yet started.
+**DONE (2026-09-07) — 5a per-client net profit ("Profit by client" panel, under the P&L strip):**
+`index.html` `renderClientProfit()`, fed by `loadPnL()` (which now fetches clients.json + cost-store +
+xero-revenue for the P&L period). Per client: **Contribution** = revenue(Xero, by contact) − carrier
+cost − charge-backs (eHub) — exact. **Overhead (alloc.)** = a shipment-weighted share of ALL company
+cost below contribution, i.e. `(Σ contribution − company net income)` split by each client's shipment
+share. This is deliberate: client-level revenue/cost don't reconcile to the full Xero P&L (Biller Genie
+contra, warehouse-materials COGS, LTL/direct freight booked outside eHub all live only company-level),
+so allocating the whole gap makes **client nets sum EXACTLY to company net income** (verified Aug: sums
+to $14,778). Basis = shipments (falls back to revenue if no shipment data); Zack chose shipments (fair
+for a 3PL — handling scales with volume). Sorted worst-net first. **Read it as two lenses:**
+Contribution = keep/drop signal (Joymode +$19K → keep); Net = pricing signal (Joymode −$25K at 52% of
+all shipments → under-priced for its volume, renegotiate not cancel). Overhead is mostly FIXED, so a
+negative net is NOT "drop them and gain that back". Open-month periods flagged preliminary.
+
+**All planned margin phases (1–5b + P&L) are now built.** No input-gated work remaining. Possible future:
+per-client warehousing-fee compliance (needs order/pallet/pick counts per client), Biller Genie
+resolution (see memory), billing.js 7-day-window fix (see Billing logic above).
 Note: gating `/*` breaks server-to-server calls — `cron-rollup` and the nightly sync send their own
 basic-auth header (`DASH_USER`/`DASH_PASS`), and the Xero OAuth endpoints are exempt in `auth.js`.
 Keep that in mind for any new internal function calls.
