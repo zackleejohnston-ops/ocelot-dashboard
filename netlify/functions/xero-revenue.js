@@ -163,6 +163,25 @@ exports.handler = async function (event) {
       grossProfit: pick(['Gross Profit']),
       netIncome:   pick(['Net Income', 'Net Income  / (Loss) before Tax', 'Net Income / (Loss) before Tax', 'Net Profit', 'Net Profit / (Loss)'])
     };
+    // Back out any clearing accounts mis-mapped into the income section (e.g. Biller Genie
+    // card-payment clearing). They aren't revenue; flow straight to the bottom line, so
+    // removing them lifts revenue, gross profit AND net income by the same amount.
+    const clearingNames = (clientsConfig.pnl && clientsConfig.pnl.clearingAccounts) || [];
+    const clearingAccounts = [];
+    let clearingTotal = 0;
+    if (clearingNames.length) {
+      (pnlSections || []).forEach(sec => (sec.rows || []).forEach(row => {
+        if (!row.summary && clearingNames.indexOf(row.name) >= 0) {
+          clearingAccounts.push({ name: row.name, amount: row.amount });
+          clearingTotal = round(clearingTotal + row.amount);
+        }
+      }));
+    }
+    pnlSummary.clearingTotal = clearingTotal;
+    pnlSummary.clearingAccounts = clearingAccounts;
+    pnlSummary.adjustedRevenue     = (pnlSummary.revenue     != null) ? round(pnlSummary.revenue     - clearingTotal) : null;
+    pnlSummary.adjustedGrossProfit = (pnlSummary.grossProfit != null) ? round(pnlSummary.grossProfit - clearingTotal) : null;
+    pnlSummary.adjustedNetIncome   = (pnlSummary.netIncome   != null) ? round(pnlSummary.netIncome   - clearingTotal) : null;
   } catch (e) { pnlError = String(e && e.message); }
 
   return resp(200, {

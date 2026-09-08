@@ -426,7 +426,12 @@ function renderPnL(rev,s,e){
     flow.innerHTML='<div class="sbox" style="padding:8px 2px;">P&amp;L unavailable'+(rev&&rev.pnlError?' ('+rev.pnlError+')':((rev&&rev.connected===false)?' — Xero not connected':''))+'.</div>';
     note.textContent=''; return;
   }
-  var revv=p.revenue||0, cos=p.costOfSales||0, gp=(p.grossProfit!=null?p.grossProfit:revv-cos), net=p.netIncome||0;
+  // Use clearing-adjusted figures (Biller Genie card-clearing etc. backed out of income).
+  var clr=p.clearingTotal||0, adjusted=(clr!==0);
+  var revv=(p.adjustedRevenue!=null?p.adjustedRevenue:p.revenue)||0;
+  var cos=p.costOfSales||0;
+  var gp=(p.adjustedGrossProfit!=null?p.adjustedGrossProfit:(p.grossProfit!=null?p.grossProfit:revv-cos));
+  var net=(p.adjustedNetIncome!=null?p.adjustedNetIncome:p.netIncome)||0;
   var overhead=gp-net, gpPct=revv?gp/revv*100:0, netPct=revv?net/revv*100:0, pos=net>=0;
   // "Preliminary" if the window runs into the CURRENT (open) calendar month: recent
   // freight/payroll/rent bills post late, so costs are understated and net income is
@@ -446,9 +451,14 @@ function renderPnL(rev,s,e){
     +op('=')+'<div class="pnl-step pnl-net '+cls+'"><div class="lbl">Net income</div>'
       +'<div class="val '+cls+'">'+m$(net)+'</div>'
       +'<div class="pnl-verdict '+cls+'">'+verdict+' ('+netPct.toFixed(0)+'%)</div></div>';
-  note.innerHTML=preliminary
+  var baseNote=preliminary
     ? '⏳ <b>Preliminary period.</b> Recent freight bills, payroll and rent post to Xero after the fact, so costs here are understated and net income is overstated. For a true read, use “Last full month.”'
     : 'Straight from your Xero books for this period — every expense included (payroll, rent, equipment, software, insurance). This is the company total; the table below shows which clients drive it (before overhead).';
+  if(adjusted){
+    var names=(p.clearingAccounts||[]).map(function(a){return a.name;}).join(', ')||'clearing account';
+    baseNote+=' <br><span style="color:var(--gold2)">Adjusted:</span> backed out the <b>'+names+'</b> ('+m$(clr)+', card payments in transit — not revenue) so profit isn’t skewed by settlement timing. As booked in Xero, net income is '+m$(p.netIncome)+'; the source fix is to reclassify it to the balance sheet.';
+  }
+  note.innerHTML=baseNote;
   // Full line-by-line breakdown (collapsed by default).
   var det=document.getElementById('pnlDetail');
   if(rev.pnlSections&&rev.pnlSections.length){
@@ -476,7 +486,9 @@ function renderClientProfit(cfg,cost,rev,s,e){
   var totShips=list.reduce(function(t,x){return t+x.ships;},0);
   var totContrib=list.reduce(function(t,x){return t+x.contrib;},0);
   var totRev=list.reduce(function(t,x){return t+x.rvn;},0);
-  var p=rev&&rev.pnlSummary, net=(p&&p.netIncome!=null)?p.netIncome:null, haveNet=(net!=null);
+  // Tie to the clearing-adjusted net income (same figure the P&L strip shows).
+  var p=rev&&rev.pnlSummary, net=(p?(p.adjustedNetIncome!=null?p.adjustedNetIncome:p.netIncome):null); if(net===undefined)net=null;
+  var haveNet=(net!=null);
   var toAlloc=haveNet?(totContrib-net):0;              // every company cost below contribution
   var basisTot=totShips>0?totShips:totRev;            // shipment share, fall back to revenue
   list.forEach(function(x){
@@ -496,7 +508,8 @@ function renderClientProfit(cfg,cost,rev,s,e){
       +(haveNet?('<td'+neg(x.net)+'>'+m$(x.net)+'</td><td'+neg(x.net)+'>'+(x.nmpct!=null?x.nmpct.toFixed(0)+'%':'—')+'</td>'):'<td>—</td><td>—</td>')
       +'</tr>';
   }).join('');
-  var netPct=(haveNet&&p.revenue)?(net/p.revenue*100):null;
+  var adjRev=p?(p.adjustedRevenue!=null?p.adjustedRevenue:p.revenue):null;
+  var netPct=(haveNet&&adjRev)?(net/adjRev*100):null;
   h+='<tr class="tot"><td>All clients</td><td'+neg(totContrib)+'>'+m$(totContrib)+'</td><td>'+(totShips>0?totShips.toLocaleString():'—')+' 100%</td>'
     +'<td style="color:var(--txt-dim)">'+(haveNet?m$(-toAlloc):'—')+'</td>'
     +(haveNet?('<td'+neg(net)+'>'+m$(net)+'</td><td'+neg(net)+'>'+(netPct!=null?netPct.toFixed(0)+'%':'—')+'</td>'):'<td>—</td><td>—</td>')+'</tr>';
@@ -504,7 +517,7 @@ function renderClientProfit(cfg,cost,rev,s,e){
   var endD=new Date(e+'T00:00:00'), now=new Date(), openMo=(endD.getFullYear()===now.getFullYear()&&endD.getMonth()===now.getMonth());
   note.innerHTML=(openMo?'⏳ <b>Preliminary</b> (open month — costs still posting). ':'')
     +(haveNet
-      ? '<b>Contribution</b> (revenue − freight cost) is exact per client. Overhead &amp; all other company costs are split by each client’s <b>shipment share</b> — handling scales with volume, the standard 3PL basis. Client nets sum to the company’s actual net income ('+m$(net)+'). A high-volume, low-margin client can show a loss here even with positive contribution: it eats more warehouse capacity than its margin pays for.'
+      ? '<b>Contribution</b> (revenue − freight cost) is exact per client. Overhead &amp; all other company costs are split by each client’s <b>shipment share</b> — handling scales with volume, the standard 3PL basis. Client nets sum to the company’s net income ('+m$(net)+(p&&p.clearingTotal?', clearing account backed out':'')+'). A high-volume, low-margin client can show a loss here even with positive contribution: it eats more warehouse capacity than its margin pays for.'
       : 'Contribution (revenue − freight cost) per client. Overhead allocation needs the Xero P&amp;L for this period.');
 }
 function renderMargins(cfg,cost,rev,s,e){

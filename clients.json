@@ -31,6 +31,10 @@
     "_comment": "Freight compliance = effective outbound freight markup (freightBilled/carrierCost - 1) vs contracted freightMarkupPct. Only UNDER-billing is a violation: per-label, residential and intl surcharges ride ON TOP of the base markup, so a compliant client's effective markup is >= contract. Flag only when effective falls this many percentage points BELOW contract (avoids false-flagging the fee headroom).",
     "freightMarkupUnderTolerancePts": 2
   },
+  "pnl": {
+    "_comment": "Accounts that appear in the Xero P&L income section but are NOT revenue - e.g. payment-processor clearing accounts (card money in transit). Their balance ebbs and flows with settlement timing and Accounting Frontier reconciles them monthly, so they distort revenue/net when they land in Income. The dashboard backs these out of revenue, gross profit and net income so 'Are we making money?' isn't skewed. PROPER FIX is at the source: reclassify them to a balance-sheet clearing account in Xero; then they read 0 here and this has no effect. Match by exact P&L line name.",
+    "clearingAccounts": ["Biller Genie Sales Account"]
+  },
 
   "clients": [
     {
