@@ -535,12 +535,12 @@ function renderMargins(cfg,cost,rev,s,e){
         :'<span'+(x.underContract?' class="mgn-neg"':'')+'>'+x.effPct.toFixed(0)+'%</span> <span style="color:var(--txt-faint)">/ '+x.contractPct+'%</span>';
       return '<tr><td class="cn">'+x.name+(x.confirmed===false?' *':'')+(x.backRate>3?' ⚠':'')+(x.underContract?' 🔻':'')+'</td>'
         +'<td>'+m$(x.totalBilled)+'</td><td>'+m$(x.freight)+'</td><td>'+m$(x.other)+'</td>'
-        +'<td>'+m$(x.carrier)+'</td><td>'+mk+'</td><td>'+m$(x.back)+'</td>'
+        +'<td>'+m$(x.carrier)+'</td><td>'+mk+'</td><td'+(x.back>0?' style="color:var(--red);font-weight:800;"':'')+'>'+m$(x.back)+'</td>'
         +'<td'+neg+'>'+m$(x.margin)+'</td><td'+neg+'>'+x.mpct.toFixed(1)+'%</td></tr>';
     }).join('');
     var mpctT=T.totalBilled?T.margin/T.totalBilled*100:0;
     var effT=T.carrier?((T.freight/T.carrier-1)*100).toFixed(0)+'%':'—';
-    body+='<tr class="tot"><td>All clients</td><td>'+m$(T.totalBilled)+'</td><td>'+m$(T.freight)+'</td><td>'+m$(T.other)+'</td><td>'+m$(T.carrier)+'</td><td>'+effT+'</td><td>'+m$(T.back)+'</td><td>'+m$(T.margin)+'</td><td>'+mpctT.toFixed(1)+'%</td></tr>';
+    body+='<tr class="tot"><td>All clients</td><td>'+m$(T.totalBilled)+'</td><td>'+m$(T.freight)+'</td><td>'+m$(T.other)+'</td><td>'+m$(T.carrier)+'</td><td>'+effT+'</td><td'+(T.back>0?' style="color:var(--red);font-weight:800;"':'')+'>'+m$(T.back)+'</td><td>'+m$(T.margin)+'</td><td>'+mpctT.toFixed(1)+'%</td></tr>';
     document.getElementById('mgnBody').innerHTML=body;
     var flagged=rows.filter(function(x){return x.backRate>3;}).map(function(x){return x.name+' ('+x.backRate.toFixed(1)+'%)';});
     var al='<span class="big">'+m$(T.back)+'</span> charged back this period &nbsp;·&nbsp; <span class="big">$0.00</span> rebilled to clients';
