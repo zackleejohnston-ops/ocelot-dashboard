@@ -462,12 +462,23 @@ function renderPnL(rev,s,e){
   // Full line-by-line breakdown (collapsed by default).
   var det=document.getElementById('pnlDetail');
   if(rev.pnlSections&&rev.pnlSections.length){
-    det.innerHTML=rev.pnlSections.map(function(sec){
+    var clearNames={}; (p.clearingAccounts||[]).forEach(function(a){clearNames[a.name]=true;});
+    var dh=rev.pnlSections.map(function(sec){
       var h=sec.title?'<div class="pnl-dsec">'+sec.title+'</div>':'';
       return h+sec.rows.map(function(row){
-        return '<div class="pnl-drow'+(row.summary?' sum':'')+'"><span>'+row.name+'</span><span'+(row.amount<0?' class="mgn-neg"':'')+'>'+m$(row.amount)+'</span></div>';
+        var isClear=clearNames[row.name];
+        var nm=row.name+(isClear?' <span style="color:var(--gold2)">— excluded (clearing)</span>':'');
+        return '<div class="pnl-drow'+(row.summary?' sum':'')+'"'+(isClear?' style="opacity:.55"':'')+'><span>'+nm+'</span><span'+(row.amount<0?' class="mgn-neg"':'')+'>'+m$(row.amount)+'</span></div>';
       }).join('');
     }).join('');
+    if(adjusted){
+      var adjAmt=-clr;   // removing a negative clearing line adds it back
+      dh+='<div class="pnl-dsec">Adjustment (why the top number differs)</div>'
+        +'<div class="pnl-drow"><span>Net income as booked in Xero</span><span>'+m$(p.netIncome)+'</span></div>'
+        +'<div class="pnl-drow"><span>Remove Biller Genie clearing account (not revenue)</span><span>'+(adjAmt>0?'+':'')+m$(adjAmt)+'</span></div>'
+        +'<div class="pnl-drow sum"><span>Adjusted net income (shown at top)</span><span>'+m$(net)+'</span></div>';
+    }
+    det.innerHTML=dh;
   } else { det.innerHTML='<div class="pnl-note">Breakdown unavailable for this period.</div>'; }
 }
 // Per-client net profit — contribution (exact) minus a shipment-weighted share of ALL
